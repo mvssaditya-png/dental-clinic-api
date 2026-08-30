@@ -19,4 +19,17 @@ public interface AppUserRepository extends JpaRepository<AppUser, UUID> {
     boolean existsByClinicIdAndEmailIgnoreCase(UUID clinicId, String email);
 
     boolean existsByClinicIdAndPhone(UUID clinicId, String phone);
+
+    Optional<AppUser> findFirstByPhoneAndStatus(
+            String phone,
+            UserStatus status
+    );
+    boolean existsByPhoneAndStatus(
+            String phone,
+            UserStatus status
+    );
+    List<AppUser> findAllByPhoneAndStatus(
+            String phone,
+            UserStatus status
+    );
 }
