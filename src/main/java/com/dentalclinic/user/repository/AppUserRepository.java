@@ -3,6 +3,8 @@ package com.dentalclinic.user.repository;
 import com.dentalclinic.user.entity.AppUser;
 import com.dentalclinic.user.entity.UserStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
@@ -31,5 +33,15 @@ public interface AppUserRepository extends JpaRepository<AppUser, UUID> {
     List<AppUser> findAllByPhoneAndStatus(
             String phone,
             UserStatus status
+    );
+
+    @Query("""
+    SELECT u
+    FROM AppUser u
+    LEFT JOIN FETCH u.clinic
+    WHERE u.id = :userId
+""")
+    Optional<AppUser> findByIdWithClinic(
+            @Param("userId") UUID userId
     );
 }
