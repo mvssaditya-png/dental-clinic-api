@@ -2,9 +2,7 @@ package com.dentalclinic.patient.service;
 
 import com.dentalclinic.clinic.entity.Clinic;
 import com.dentalclinic.clinic.repository.ClinicRepository;
-import com.dentalclinic.patient.dto.CreatePatientRequest;
-import com.dentalclinic.patient.dto.MedicalHistoryRequest;
-import com.dentalclinic.patient.dto.PatientResponse;
+import com.dentalclinic.patient.dto.*;
 import com.dentalclinic.patient.entity.Patient;
 import com.dentalclinic.patient.entity.PatientActivity;
 import com.dentalclinic.patient.entity.PatientMedicalHistory;
@@ -20,7 +18,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
-
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 @Service
 @RequiredArgsConstructor
 public class PatientService {
@@ -240,5 +240,348 @@ public class PatientService {
                 .clinicId(patient.getClinic().getId())
                 .createdAt(patient.getCreatedAt())
                 .build();
+    }
+
+    @Transactional(readOnly = true)
+    public Page<PatientResponse> getPatients(
+            UUID requestedClinicId,
+            String search,
+            int page,
+            int size
+    ) {
+
+        AppUser currentUser = SecurityUtils.getCurrentUser();
+
+        Clinic clinic = resolveClinic(
+                currentUser,
+                requestedClinicId
+        );
+
+        int safePage = Math.max(page, 0);
+        int safeSize = Math.min(Math.max(size, 1), 100);
+
+        Pageable pageable =
+                PageRequest.of(safePage, safeSize);
+
+        String normalizedSearch =
+                search == null
+                        ? null
+                        : search.trim();
+
+        return patientRepository
+                .searchPatients(
+                        clinic.getId(),
+                        normalizedSearch,
+                        pageable
+                )
+                .map(this::mapToResponse);
+    }
+
+    @Transactional(readOnly = true)
+    public PatientDetailResponse getPatientById(
+            UUID patientId,
+            UUID requestedClinicId
+    ) {
+
+        AppUser currentUser = SecurityUtils.getCurrentUser();
+
+        Clinic clinic = resolveClinic(
+                currentUser,
+                requestedClinicId
+        );
+
+        Patient patient = patientRepository
+                .findByIdAndClinicId(
+                        patientId,
+                        clinic.getId()
+                )
+                .orElseThrow(() ->
+                        new IllegalArgumentException(
+                                "Patient not found"
+                        )
+                );
+
+        PatientMedicalHistory medicalHistory =
+                medicalHistoryRepository
+                        .findByPatientId(patient.getId())
+                        .orElse(null);
+
+        return mapToDetailResponse(
+                patient,
+                medicalHistory
+        );
+    }
+
+    private PatientDetailResponse mapToDetailResponse(
+            Patient patient,
+            PatientMedicalHistory history
+    ) {
+
+        return PatientDetailResponse.builder()
+                .id(patient.getId())
+                .patientNumber(patient.getPatientNumber())
+                .firstName(patient.getFirstName())
+                .lastName(patient.getLastName())
+                .gender(patient.getGender())
+                .dob(patient.getDob())
+                .bloodGroup(patient.getBloodGroup())
+                .maritalStatus(patient.getMaritalStatus())
+                .occupation(patient.getOccupation())
+                .nationality(patient.getNationality())
+                .phone(patient.getPhone())
+                .email(patient.getEmail())
+                .aadhaarNumber(patient.getAadhaarNumber())
+                .emergencyContactName(patient.getEmergencyContactName())
+                .emergencyContactPhone(patient.getEmergencyContactPhone())
+                .reasonForVisit(patient.getReasonForVisit())
+                .addressLine1(patient.getAddressLine1())
+                .addressLine2(patient.getAddressLine2())
+                .city(patient.getCity())
+                .state(patient.getState())
+                .country(patient.getCountry())
+                .pincode(patient.getPincode())
+                .active(patient.getActive())
+                .clinicId(patient.getClinic().getId())
+                .createdAt(patient.getCreatedAt())
+                .updatedAt(patient.getUpdatedAt())
+                .medicalHistory(
+                        history != null
+                                ? mapMedicalHistory(history)
+                                : null
+                )
+                .build();
+    }
+
+    private MedicalHistoryResponse mapMedicalHistory(
+            PatientMedicalHistory history
+    ) {
+
+        return MedicalHistoryResponse.builder()
+                .diabetes(history.getDiabetes())
+                .hypertension(history.getHypertension())
+                .thyroid(history.getThyroid())
+                .heartDisease(history.getHeartDisease())
+                .kidneyDisease(history.getKidneyDisease())
+                .pregnancy(history.getPregnancy())
+                .asthma(history.getAsthma())
+                .allergies(history.getAllergies())
+                .tobacco(history.getTobacco())
+                .alcohol(history.getAlcohol())
+                .smoking(history.getSmoking())
+                .allergyNotes(history.getAllergyNotes())
+                .otherConditions(history.getOtherConditions())
+                .build();
+    }
+
+    @Transactional
+    public PatientDetailResponse updatePatient(
+            UUID patientId,
+            UpdatePatientRequest request
+    ) {
+
+        AppUser currentUser = SecurityUtils.getCurrentUser();
+
+        Clinic clinic = resolveClinic(
+                currentUser,
+                request.getClinicId()
+        );
+
+        Patient patient = patientRepository
+                .findByIdAndClinicId(
+                        patientId,
+                        clinic.getId()
+                )
+                .orElseThrow(() ->
+                        new IllegalArgumentException("Patient not found")
+                );
+
+        String aadhaarNumber =
+                normalizeNullable(request.getAadhaarNumber());
+
+        if (aadhaarNumber != null &&
+                patientRepository
+                        .existsByClinicIdAndAadhaarNumberAndIdNot(
+                                clinic.getId(),
+                                aadhaarNumber,
+                                patientId
+                        )) {
+
+            throw new IllegalArgumentException(
+                    "A patient with this Aadhaar number already exists"
+            );
+        }
+
+        patient.setFirstName(request.getFirstName().trim());
+        patient.setLastName(normalizeNullable(request.getLastName()));
+        patient.setGender(request.getGender());
+        patient.setDob(request.getDob());
+        patient.setBloodGroup(normalizeNullable(request.getBloodGroup()));
+        patient.setMaritalStatus(normalizeNullable(request.getMaritalStatus()));
+        patient.setOccupation(normalizeNullable(request.getOccupation()));
+        patient.setNationality(normalizeNullable(request.getNationality()));
+
+        patient.setPhone(request.getPhone().trim());
+        patient.setEmail(normalizeNullable(request.getEmail()));
+
+        patient.setAadhaarNumber(aadhaarNumber);
+
+        patient.setEmergencyContactName(
+                normalizeNullable(request.getEmergencyContactName())
+        );
+
+        patient.setEmergencyContactPhone(
+                normalizeNullable(request.getEmergencyContactPhone())
+        );
+
+        patient.setReasonForVisit(
+                normalizeNullable(request.getReasonForVisit())
+        );
+
+        patient.setAddressLine1(
+                normalizeNullable(request.getAddressLine1())
+        );
+
+        patient.setAddressLine2(
+                normalizeNullable(request.getAddressLine2())
+        );
+
+        patient.setCity(normalizeNullable(request.getCity()));
+        patient.setState(normalizeNullable(request.getState()));
+
+        patient.setCountry(
+                normalizeNullable(request.getCountry())
+        );
+
+        patient.setPincode(
+                normalizeNullable(request.getPincode())
+        );
+
+        patient.setUpdatedBy(currentUser);
+
+        patientRepository.save(patient);
+
+        PatientMedicalHistory history =
+                updateMedicalHistory(
+                        patient,
+                        clinic,
+                        currentUser,
+                        request.getMedicalHistory()
+                );
+
+        PatientActivity activity =
+                PatientActivity.builder()
+                        .clinic(clinic)
+                        .patient(patient)
+                        .activityType("PATIENT_UPDATED")
+                        .referenceType("PATIENT")
+                        .referenceId(patient.getId())
+                        .title("Patient details updated")
+                        .description(
+                                "Patient profile or medical history was updated"
+                        )
+                        .performedBy(currentUser)
+                        .build();
+
+        patientActivityRepository.save(activity);
+
+        return mapToDetailResponse(
+                patient,
+                history
+        );
+    }
+
+    private PatientMedicalHistory updateMedicalHistory(
+            Patient patient,
+            Clinic clinic,
+            AppUser currentUser,
+            MedicalHistoryRequest request
+    ) {
+
+        PatientMedicalHistory history =
+                medicalHistoryRepository
+                        .findByPatientId(patient.getId())
+                        .orElse(null);
+
+        if (request == null) {
+            return history;
+        }
+
+        if (history == null) {
+
+            history = PatientMedicalHistory.builder()
+                    .clinic(clinic)
+                    .patient(patient)
+                    .createdBy(currentUser)
+                    .build();
+        }
+
+        history.setDiabetes(
+                Boolean.TRUE.equals(request.getDiabetes())
+        );
+
+        history.setHypertension(
+                Boolean.TRUE.equals(request.getHypertension())
+        );
+
+        history.setThyroid(
+                Boolean.TRUE.equals(request.getThyroid())
+        );
+
+        history.setHeartDisease(
+                Boolean.TRUE.equals(request.getHeartDisease())
+        );
+
+        history.setKidneyDisease(
+                Boolean.TRUE.equals(request.getKidneyDisease())
+        );
+
+        history.setPregnancy(
+                Boolean.TRUE.equals(request.getPregnancy())
+        );
+
+        history.setAsthma(
+                Boolean.TRUE.equals(request.getAsthma())
+        );
+
+        history.setAllergies(
+                Boolean.TRUE.equals(request.getAllergies())
+        );
+
+        history.setTobacco(
+                Boolean.TRUE.equals(request.getTobacco())
+        );
+
+        history.setAlcohol(
+                Boolean.TRUE.equals(request.getAlcohol())
+        );
+
+        history.setSmoking(
+                Boolean.TRUE.equals(request.getSmoking())
+        );
+
+        history.setAllergyNotes(
+                normalizeNullable(request.getAllergyNotes())
+        );
+
+        history.setOtherConditions(
+                normalizeNullable(request.getOtherConditions())
+        );
+
+        history.setUpdatedBy(currentUser);
+
+        return medicalHistoryRepository.save(history);
+    }
+
+    private String normalizeNullable(String value) {
+
+        if (value == null) {
+            return null;
+        }
+
+        String trimmed = value.trim();
+
+        return trimmed.isEmpty()
+                ? null
+                : trimmed;
     }
 }
