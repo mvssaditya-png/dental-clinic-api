@@ -18,4 +18,8 @@ public interface RoleRepository extends JpaRepository<Role, UUID> {
     List<Role> findAllByClinicIsNullAndActiveTrue();
 
     boolean existsByClinicIdAndRoleCode(UUID clinicId, String roleCode);
+
+    Optional<Role> findByRoleCodeAndClinicIdIsNull(
+            String roleCode
+    );
 }
