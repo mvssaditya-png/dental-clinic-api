@@ -45,4 +45,9 @@ public interface ConsultationRepository
             @Param("appointmentId") UUID appointmentId,
             @Param("clinicId") UUID clinicId
     );
+
+    Optional<Consultation> findByAppointmentIdAndClinicId(
+            UUID appointmentId,
+            UUID clinicId
+    );
 }

@@ -8,6 +8,9 @@ import com.dentalclinic.appointment.repository.AppointmentRepository;
 import com.dentalclinic.appointment.repository.AppointmentStatusHistoryRepository;
 import com.dentalclinic.clinic.entity.Clinic;
 import com.dentalclinic.clinic.repository.ClinicRepository;
+import com.dentalclinic.consultation.entity.Consultation;
+import com.dentalclinic.consultation.entity.ConsultationStatus;
+import com.dentalclinic.consultation.repository.ConsultationRepository;
 import com.dentalclinic.doctor.entity.DoctorProfile;
 import com.dentalclinic.doctor.repository.DoctorProfileRepository;
 import com.dentalclinic.patient.entity.Patient;
@@ -35,7 +38,7 @@ public class AppointmentService {
     private final PatientRepository patientRepository;
     private final DoctorProfileRepository doctorProfileRepository;
     private final ClinicRepository clinicRepository;
-
+    private final ConsultationRepository consultationRepository;
     @Transactional
     public AppointmentResponse createAppointment(
             CreateAppointmentRequest request
@@ -508,6 +511,28 @@ public class AppointmentService {
                 currentStatus,
                 newStatus
         );
+
+        if (newStatus == AppointmentStatus.COMPLETED) {
+
+            Consultation consultation =
+                    consultationRepository
+                            .findByAppointmentIdAndClinicId(
+                                    appointment.getId(),
+                                    clinic.getId()
+                            )
+                            .orElseThrow(() ->
+                                    new IllegalArgumentException(
+                                            "Appointment cannot be completed because consultation does not exist"
+                                    )
+                            );
+
+            if (consultation.getStatus() != ConsultationStatus.COMPLETED) {
+
+                throw new IllegalArgumentException(
+                        "Appointment cannot be completed until the consultation is completed"
+                );
+            }
+        }
 
         /*
          * Cancellation reason is required when cancelling.
