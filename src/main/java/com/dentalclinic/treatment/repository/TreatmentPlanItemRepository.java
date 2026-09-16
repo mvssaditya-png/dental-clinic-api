@@ -1,6 +1,7 @@
 package com.dentalclinic.treatment.repository;
 
 import com.dentalclinic.treatment.entity.TreatmentPlanItem;
+import com.dentalclinic.treatment.entity.TreatmentPlanItemStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -48,5 +49,10 @@ public interface TreatmentPlanItemRepository
 
     long countByTreatmentPlanId(
             UUID treatmentPlanId
+    );
+
+    long countByTreatmentPlanIdAndStatusNotIn(
+            UUID treatmentPlanId,
+            java.util.Collection<TreatmentPlanItemStatus> statuses
     );
 }

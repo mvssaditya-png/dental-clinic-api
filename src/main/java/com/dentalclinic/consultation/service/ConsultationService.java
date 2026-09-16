@@ -3,10 +3,14 @@ package com.dentalclinic.consultation.service;
 import com.dentalclinic.appointment.entity.Appointment;
 import com.dentalclinic.appointment.entity.AppointmentStatus;
 import com.dentalclinic.appointment.repository.AppointmentRepository;
+import com.dentalclinic.casesheet.entity.CaseSheet;
+import com.dentalclinic.casesheet.entity.CaseSheetStatus;
+import com.dentalclinic.casesheet.repository.CaseSheetRepository;
 import com.dentalclinic.clinic.entity.Clinic;
 import com.dentalclinic.clinic.repository.ClinicRepository;
 import com.dentalclinic.consultation.dto.CreateConsultationRequest;
 import com.dentalclinic.consultation.dto.ConsultationResponse;
+import com.dentalclinic.consultation.dto.UpdateConsultationStatusRequest;
 import com.dentalclinic.consultation.entity.Consultation;
 import com.dentalclinic.consultation.entity.ConsultationStatus;
 import com.dentalclinic.consultation.repository.ConsultationRepository;
@@ -30,6 +34,7 @@ public class ConsultationService {
     private final ConsultationRepository consultationRepository;
     private final AppointmentRepository appointmentRepository;
     private final ClinicRepository clinicRepository;
+    private final CaseSheetRepository caseSheetRepository;
 
     @Transactional
     public ConsultationResponse createConsultation(
@@ -292,5 +297,114 @@ public class ConsultationService {
                         );
 
         return mapToResponse(consultation);
+    }
+
+    @Transactional
+    public ConsultationResponse updateStatus(
+            UUID consultationId,
+            UpdateConsultationStatusRequest request
+    ) {
+
+        AppUser currentUser = SecurityUtils.getCurrentUser();
+
+        Clinic clinic = resolveClinic(
+                currentUser,
+                request.getClinicId()
+        );
+
+        Consultation consultation =
+                consultationRepository
+                        .findByIdAndClinicIdWithDetails(
+                                consultationId,
+                                clinic.getId()
+                        )
+                        .orElseThrow(() ->
+                                new IllegalArgumentException(
+                                        "Consultation not found"
+                                )
+                        );
+
+        ConsultationStatus currentStatus =
+                consultation.getStatus();
+
+        ConsultationStatus newStatus =
+                request.getStatus();
+
+        if (currentStatus == newStatus) {
+            throw new IllegalArgumentException(
+                    "Consultation is already in status " + newStatus
+            );
+        }
+
+        validateStatusTransition(
+                currentStatus,
+                newStatus
+        );
+
+        /*
+         * Consultation can be completed only after
+         * its Case Sheet has been finalized.
+         */
+        if (newStatus == ConsultationStatus.COMPLETED) {
+
+            CaseSheet caseSheet =
+                    caseSheetRepository
+                            .findByConsultationIdAndClinicId(
+                                    consultation.getId(),
+                                    clinic.getId()
+                            )
+                            .orElseThrow(() ->
+                                    new IllegalArgumentException(
+                                            "Consultation cannot be completed because case sheet does not exist"
+                                    )
+                            );
+
+            if (caseSheet.getStatus() != CaseSheetStatus.FINALIZED) {
+                throw new IllegalArgumentException(
+                        "Consultation cannot be completed until the case sheet is finalized"
+                );
+            }
+        }
+
+        consultation.setStatus(newStatus);
+
+        consultation.setUpdatedBy(currentUser);
+
+        consultation =
+                consultationRepository.save(consultation);
+
+        return mapToResponse(consultation);
+    }
+
+    private void validateStatusTransition(
+            ConsultationStatus currentStatus,
+            ConsultationStatus newStatus
+    ) {
+
+        boolean allowed =
+                switch (currentStatus) {
+
+                    case STARTED ->
+                            newStatus == ConsultationStatus.IN_PROGRESS
+                                    || newStatus == ConsultationStatus.CANCELLED;
+
+                    case IN_PROGRESS ->
+                            newStatus == ConsultationStatus.COMPLETED
+                                    || newStatus == ConsultationStatus.CANCELLED;
+
+                    case COMPLETED,
+                         CANCELLED ->
+                            false;
+                };
+
+        if (!allowed) {
+
+            throw new IllegalArgumentException(
+                    "Invalid consultation status transition: "
+                            + currentStatus
+                            + " -> "
+                            + newStatus
+            );
+        }
     }
 }

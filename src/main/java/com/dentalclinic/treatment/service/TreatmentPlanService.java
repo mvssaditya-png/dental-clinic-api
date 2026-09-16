@@ -3,10 +3,7 @@ package com.dentalclinic.treatment.service;
 import com.dentalclinic.clinic.entity.Clinic;
 import com.dentalclinic.clinic.repository.ClinicRepository;
 import com.dentalclinic.security.util.SecurityUtils;
-import com.dentalclinic.treatment.dto.CreateTreatmentPlanItemRequest;
-import com.dentalclinic.treatment.dto.CreateTreatmentPlanRequest;
-import com.dentalclinic.treatment.dto.TreatmentPlanItemResponse;
-import com.dentalclinic.treatment.dto.TreatmentPlanResponse;
+import com.dentalclinic.treatment.dto.*;
 import com.dentalclinic.treatment.entity.*;
 import com.dentalclinic.treatment.repository.*;
 
@@ -1034,5 +1031,745 @@ public class TreatmentPlanService {
                 )
 
                 .build();
+    }
+
+    @Transactional
+    public TreatmentPlanResponse updateTreatmentPlan(
+            UUID treatmentPlanId,
+            UpdateTreatmentPlanRequest request
+    ) {
+
+        AppUser currentUser =
+                SecurityUtils.getCurrentUser();
+
+        Clinic clinic =
+                resolveClinic(
+                        currentUser,
+                        request.getClinicId()
+                );
+
+        TreatmentPlan treatmentPlan =
+                treatmentPlanRepository
+                        .findByIdAndClinicIdWithDetails(
+                                treatmentPlanId,
+                                clinic.getId()
+                        )
+                        .orElseThrow(() ->
+                                new IllegalArgumentException(
+                                        "Treatment plan not found"
+                                )
+                        );
+
+        if (treatmentPlan.getStatus()
+                != TreatmentPlanStatus.DRAFT) {
+
+            throw new IllegalArgumentException(
+                    "Only DRAFT treatment plans can be updated"
+            );
+        }
+
+        treatmentPlan.setTitle(
+                normalize(
+                        request.getTitle()
+                )
+        );
+
+        treatmentPlan.setEstimatedTotalVisits(
+                request.getEstimatedTotalVisits()
+        );
+
+        treatmentPlan.setNotes(
+                normalize(
+                        request.getNotes()
+                )
+        );
+
+        treatmentPlan.setPatientNotes(
+                normalize(
+                        request.getPatientNotes()
+                )
+        );
+
+        /*
+         * Discount handling.
+         */
+        if (request.getDiscountType() == null) {
+
+            treatmentPlan.setDiscountType(null);
+            treatmentPlan.setDiscountValue(
+                    BigDecimal.ZERO
+            );
+
+        } else {
+
+            if (request.getDiscountValue() == null) {
+                throw new IllegalArgumentException(
+                        "discountValue is required when discountType is provided"
+                );
+            }
+
+            if (request.getDiscountType()
+                    == DiscountType.PERCENTAGE
+                    && request.getDiscountValue()
+                    .compareTo(
+                            BigDecimal.valueOf(100)
+                    ) > 0) {
+
+                throw new IllegalArgumentException(
+                        "Percentage discount cannot exceed 100"
+                );
+            }
+
+            treatmentPlan.setDiscountType(
+                    request.getDiscountType()
+            );
+
+            treatmentPlan.setDiscountValue(
+                    request.getDiscountValue()
+            );
+        }
+
+        treatmentPlan.setUpdatedBy(
+                currentUser
+        );
+
+        /*
+         * Recalculates:
+         * subtotal
+         * discountAmount
+         * finalAmount
+         */
+        recalculateTreatmentPlan(
+                treatmentPlan,
+                currentUser
+        );
+
+        /*
+         * Reload using our targeted fetch query so
+         * response mapping has all required relations.
+         */
+        TreatmentPlan updated =
+                treatmentPlanRepository
+                        .findByIdAndClinicIdWithDetails(
+                                treatmentPlanId,
+                                clinic.getId()
+                        )
+                        .orElseThrow(() ->
+                                new IllegalStateException(
+                                        "Treatment plan could not be reloaded"
+                                )
+                        );
+
+        return mapResponse(
+                updated
+        );
+    }
+
+    @Transactional
+    public TreatmentPlanResponse updateTreatmentPlanStatus(
+            UUID treatmentPlanId,
+            UpdateTreatmentPlanStatusRequest request
+    ) {
+
+        AppUser currentUser =
+                SecurityUtils.getCurrentUser();
+
+        Clinic clinic =
+                resolveClinic(
+                        currentUser,
+                        request.getClinicId()
+                );
+
+        TreatmentPlan treatmentPlan =
+                treatmentPlanRepository
+                        .findByIdAndClinicIdWithDetails(
+                                treatmentPlanId,
+                                clinic.getId()
+                        )
+                        .orElseThrow(() ->
+                                new IllegalArgumentException(
+                                        "Treatment plan not found"
+                                )
+                        );
+
+        TreatmentPlanStatus currentStatus =
+                treatmentPlan.getStatus();
+
+        TreatmentPlanStatus newStatus =
+                request.getStatus();
+
+        if (currentStatus == newStatus) {
+            throw new IllegalArgumentException(
+                    "Treatment plan is already in status "
+                            + newStatus
+            );
+        }
+
+        validateStatusTransition(
+                currentStatus,
+                newStatus
+        );
+
+        if (newStatus == TreatmentPlanStatus.COMPLETED) {
+
+            long incompleteItemCount =
+                    treatmentPlanItemRepository
+                            .countByTreatmentPlanIdAndStatusNotIn(
+                                    treatmentPlan.getId(),
+                                    java.util.List.of(
+                                            TreatmentPlanItemStatus.COMPLETED,
+                                            TreatmentPlanItemStatus.CANCELLED
+                                    )
+                            );
+
+            if (incompleteItemCount > 0) {
+
+                throw new IllegalArgumentException(
+                        "Treatment plan cannot be completed until all active treatment items are completed"
+                );
+            }
+        }
+
+        if (newStatus == TreatmentPlanStatus.COMPLETED) {
+
+            List<TreatmentPlanItem> items =
+                    treatmentPlanItemRepository
+                            .findAllByTreatmentPlanIdWithDetails(
+                                    treatmentPlan.getId()
+                            );
+
+            boolean hasCompletedItem =
+                    items.stream()
+                            .anyMatch(item ->
+                                    item.getStatus()
+                                            == TreatmentPlanItemStatus.COMPLETED
+                            );
+
+            if (!hasCompletedItem) {
+
+                throw new IllegalArgumentException(
+                        "Treatment plan must have at least one completed treatment item"
+                );
+            }
+        }
+
+        /*
+         * Before presenting a treatment plan,
+         * it should actually contain treatment.
+         */
+        if (newStatus == TreatmentPlanStatus.PRESENTED) {
+
+            long itemCount =
+                    treatmentPlanItemRepository
+                            .countByTreatmentPlanId(
+                                    treatmentPlan.getId()
+                            );
+
+            if (itemCount == 0) {
+                throw new IllegalArgumentException(
+                        "Treatment plan must contain at least one item before it can be presented"
+                );
+            }
+        }
+
+        if (newStatus == TreatmentPlanStatus.DECLINED
+                && normalize(
+                request.getDeclineReason()
+        ) == null) {
+
+            throw new IllegalArgumentException(
+                    "declineReason is required when treatment plan is declined"
+            );
+        }
+
+        if (newStatus == TreatmentPlanStatus.CANCELLED
+                && normalize(
+                request.getCancellationReason()
+        ) == null) {
+
+            throw new IllegalArgumentException(
+                    "cancellationReason is required when treatment plan is cancelled"
+            );
+        }
+
+        switch (newStatus) {
+
+            case PRESENTED -> {
+                treatmentPlan.setPresentedAt(
+                        java.time.LocalDateTime.now()
+                );
+            }
+
+            case APPROVED -> {
+                treatmentPlan.setApprovedAt(
+                        java.time.LocalDateTime.now()
+                );
+
+                treatmentPlan.setApprovalNotes(
+                        normalize(
+                                request.getApprovalNotes()
+                        )
+                );
+            }
+
+            case DECLINED -> {
+                treatmentPlan.setDeclinedAt(
+                        java.time.LocalDateTime.now()
+                );
+
+                treatmentPlan.setDeclineReason(
+                        normalize(
+                                request.getDeclineReason()
+                        )
+                );
+            }
+
+            case COMPLETED -> {
+                treatmentPlan.setCompletedAt(
+                        java.time.LocalDateTime.now()
+                );
+            }
+
+            case CANCELLED -> {
+                treatmentPlan.setCancelledAt(
+                        java.time.LocalDateTime.now()
+                );
+
+                treatmentPlan.setCancellationReason(
+                        normalize(
+                                request.getCancellationReason()
+                        )
+                );
+            }
+
+            case IN_PROGRESS -> {
+                /*
+                 * V7 treatment_plan does not have
+                 * an in_progress_at column.
+                 */
+            }
+
+            default -> {
+            }
+        }
+
+        treatmentPlan.setStatus(
+                newStatus
+        );
+
+        treatmentPlan.setUpdatedBy(
+                currentUser
+        );
+
+        treatmentPlanRepository.save(
+                treatmentPlan
+        );
+
+        TreatmentPlanStatusHistory history =
+                TreatmentPlanStatusHistory.builder()
+
+                        .clinic(clinic)
+
+                        .treatmentPlan(
+                                treatmentPlan
+                        )
+
+                        .fromStatus(
+                                currentStatus
+                        )
+
+                        .toStatus(
+                                newStatus
+                        )
+
+                        .reason(
+                                determineStatusReason(
+                                        newStatus,
+                                        request
+                                )
+                        )
+
+                        .changedBy(
+                                currentUser
+                        )
+
+                        .build();
+
+        treatmentPlanStatusHistoryRepository
+                .save(history);
+
+        return mapResponse(
+                treatmentPlan
+        );
+    }
+
+    private void validateStatusTransition(
+            TreatmentPlanStatus currentStatus,
+            TreatmentPlanStatus newStatus
+    ) {
+
+        boolean allowed =
+                switch (currentStatus) {
+
+                    case DRAFT ->
+                            newStatus
+                                    == TreatmentPlanStatus.PRESENTED
+                                    || newStatus
+                                    == TreatmentPlanStatus.CANCELLED;
+
+                    case PRESENTED ->
+                            newStatus
+                                    == TreatmentPlanStatus.APPROVED
+                                    || newStatus
+                                    == TreatmentPlanStatus.DECLINED
+                                    || newStatus
+                                    == TreatmentPlanStatus.CANCELLED;
+
+                    case APPROVED ->
+                            newStatus
+                                    == TreatmentPlanStatus.IN_PROGRESS
+                                    || newStatus
+                                    == TreatmentPlanStatus.CANCELLED;
+
+                    case IN_PROGRESS ->
+                            newStatus
+                                    == TreatmentPlanStatus.COMPLETED
+                                    || newStatus
+                                    == TreatmentPlanStatus.CANCELLED;
+
+                    case COMPLETED,
+                         DECLINED,
+                         CANCELLED ->
+                            false;
+                };
+
+        if (!allowed) {
+
+            throw new IllegalArgumentException(
+                    "Invalid treatment plan status transition: "
+                            + currentStatus
+                            + " -> "
+                            + newStatus
+            );
+        }
+    }
+
+    private String determineStatusReason(
+            TreatmentPlanStatus newStatus,
+            UpdateTreatmentPlanStatusRequest request
+    ) {
+
+        String explicitReason =
+                normalize(
+                        request.getReason()
+                );
+
+        if (explicitReason != null) {
+            return explicitReason;
+        }
+
+        return switch (newStatus) {
+
+            case PRESENTED ->
+                    "Treatment plan presented to patient";
+
+            case APPROVED ->
+                    "Treatment plan approved";
+
+            case IN_PROGRESS ->
+                    "Treatment started";
+
+            case COMPLETED ->
+                    "Treatment plan completed";
+
+            case DECLINED ->
+                    normalize(
+                            request.getDeclineReason()
+                    );
+
+            case CANCELLED ->
+                    normalize(
+                            request.getCancellationReason()
+                    );
+
+            default ->
+                    "Treatment plan status updated";
+        };
+    }
+
+    @Transactional
+    public TreatmentPlanItemResponse updateTreatmentPlanItemStatus(
+            UUID treatmentPlanId,
+            UUID itemId,
+            UpdateTreatmentPlanItemStatusRequest request
+    ) {
+
+        AppUser currentUser =
+                SecurityUtils.getCurrentUser();
+
+        Clinic clinic =
+                resolveClinic(
+                        currentUser,
+                        request.getClinicId()
+                );
+
+        TreatmentPlan treatmentPlan =
+                treatmentPlanRepository
+                        .findByIdAndClinicIdWithDetails(
+                                treatmentPlanId,
+                                clinic.getId()
+                        )
+                        .orElseThrow(() ->
+                                new IllegalArgumentException(
+                                        "Treatment plan not found"
+                                )
+                        );
+
+        if (treatmentPlan.getStatus()
+                != TreatmentPlanStatus.APPROVED
+                &&
+                treatmentPlan.getStatus()
+                        != TreatmentPlanStatus.IN_PROGRESS) {
+
+            throw new IllegalArgumentException(
+                    "Treatment items can only be progressed when treatment plan is APPROVED or IN_PROGRESS"
+            );
+        }
+
+        TreatmentPlanItem item =
+                treatmentPlanItemRepository
+                        .findByIdAndClinicIdWithDetails(
+                                itemId,
+                                clinic.getId()
+                        )
+                        .orElseThrow(() ->
+                                new IllegalArgumentException(
+                                        "Treatment plan item not found"
+                                )
+                        );
+
+        /*
+         * Important:
+         * itemId must actually belong to treatmentPlanId
+         * supplied in the URL.
+         */
+        if (!item.getTreatmentPlan()
+                .getId()
+                .equals(
+                        treatmentPlan.getId()
+                )) {
+
+            throw new IllegalArgumentException(
+                    "Treatment plan item does not belong to this treatment plan"
+            );
+        }
+
+        TreatmentPlanItemStatus currentStatus =
+                item.getStatus();
+
+        TreatmentPlanItemStatus newStatus =
+                request.getStatus();
+
+        if (currentStatus == newStatus) {
+
+            throw new IllegalArgumentException(
+                    "Treatment plan item is already in status "
+                            + newStatus
+            );
+        }
+
+        validateItemStatusTransition(
+                currentStatus,
+                newStatus
+        );
+
+        if (newStatus
+                == TreatmentPlanItemStatus.CANCELLED
+                &&
+                normalize(
+                        request.getCancellationReason()
+                ) == null) {
+
+            throw new IllegalArgumentException(
+                    "cancellationReason is required when treatment plan item is cancelled"
+            );
+        }
+
+        java.time.LocalDateTime now =
+                java.time.LocalDateTime.now();
+
+        switch (newStatus) {
+
+            case IN_PROGRESS -> {
+
+                if (item.getStartedAt() == null) {
+                    item.setStartedAt(
+                            now
+                    );
+                }
+            }
+
+            case COMPLETED -> {
+
+                if (item.getStartedAt() == null) {
+                    item.setStartedAt(
+                            now
+                    );
+                }
+
+                item.setCompletedAt(
+                        now
+                );
+            }
+
+            case CANCELLED -> {
+
+                item.setCancelledAt(
+                        now
+                );
+
+                item.setCancellationReason(
+                        normalize(
+                                request.getCancellationReason()
+                        )
+                );
+            }
+
+            default -> {
+            }
+        }
+
+        item.setStatus(
+                newStatus
+        );
+
+        item.setUpdatedBy(
+                currentUser
+        );
+
+        item =
+                treatmentPlanItemRepository.save(
+                        item
+                );
+
+        /*
+         * If treatment actually begins,
+         * automatically move the plan from
+         * APPROVED → IN_PROGRESS.
+         *
+         * This avoids:
+         *
+         * Plan = APPROVED
+         * Item = IN_PROGRESS
+         */
+        if (newStatus
+                == TreatmentPlanItemStatus.IN_PROGRESS
+                &&
+                treatmentPlan.getStatus()
+                        == TreatmentPlanStatus.APPROVED) {
+
+            TreatmentPlanStatus oldPlanStatus =
+                    treatmentPlan.getStatus();
+
+            treatmentPlan.setStatus(
+                    TreatmentPlanStatus.IN_PROGRESS
+            );
+
+            treatmentPlan.setUpdatedBy(
+                    currentUser
+            );
+
+            treatmentPlanRepository.save(
+                    treatmentPlan
+            );
+
+            TreatmentPlanStatusHistory history =
+                    TreatmentPlanStatusHistory.builder()
+                            .clinic(clinic)
+                            .treatmentPlan(
+                                    treatmentPlan
+                            )
+                            .fromStatus(
+                                    oldPlanStatus
+                            )
+                            .toStatus(
+                                    TreatmentPlanStatus.IN_PROGRESS
+                            )
+                            .reason(
+                                    "Treatment started"
+                            )
+                            .changedBy(
+                                    currentUser
+                            )
+                            .build();
+
+            treatmentPlanStatusHistoryRepository
+                    .save(history);
+        }
+
+        /*
+         * CANCELLED items no longer contribute
+         * to the treatment plan total.
+         */
+        if (newStatus
+                == TreatmentPlanItemStatus.CANCELLED) {
+
+            recalculateTreatmentPlan(
+                    treatmentPlan,
+                    currentUser
+            );
+        }
+
+        return mapItemResponse(
+                item
+        );
+    }
+
+    private void validateItemStatusTransition(
+            TreatmentPlanItemStatus currentStatus,
+            TreatmentPlanItemStatus newStatus
+    ) {
+
+        boolean allowed =
+                switch (currentStatus) {
+
+                    case PLANNED ->
+                            newStatus
+                                    == TreatmentPlanItemStatus.SCHEDULED
+                                    ||
+                                    newStatus
+                                            == TreatmentPlanItemStatus.IN_PROGRESS
+                                    ||
+                                    newStatus
+                                            == TreatmentPlanItemStatus.CANCELLED;
+
+                    case SCHEDULED ->
+                            newStatus
+                                    == TreatmentPlanItemStatus.IN_PROGRESS
+                                    ||
+                                    newStatus
+                                            == TreatmentPlanItemStatus.CANCELLED;
+
+                    case IN_PROGRESS ->
+                            newStatus
+                                    == TreatmentPlanItemStatus.COMPLETED
+                                    ||
+                                    newStatus
+                                            == TreatmentPlanItemStatus.CANCELLED;
+
+                    case COMPLETED,
+                         CANCELLED ->
+                            false;
+                };
+
+        if (!allowed) {
+
+            throw new IllegalArgumentException(
+                    "Invalid treatment plan item status transition: "
+                            + currentStatus
+                            + " -> "
+                            + newStatus
+            );
+        }
     }
 }

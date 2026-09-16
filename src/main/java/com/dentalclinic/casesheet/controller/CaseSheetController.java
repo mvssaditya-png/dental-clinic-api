@@ -168,4 +168,19 @@ public class CaseSheetController {
                         )
         );
     }
+
+    @PatchMapping("/{caseSheetId}/finalize")
+    @PreAuthorize("hasAuthority('APPOINTMENT_EDIT')")
+    public ResponseEntity<CaseSheetResponse> finalizeCaseSheet(
+            @PathVariable UUID caseSheetId,
+            @Valid @RequestBody FinalizeCaseSheetRequest request
+    ) {
+
+        return ResponseEntity.ok(
+                caseSheetService.finalizeCaseSheet(
+                        caseSheetId,
+                        request
+                )
+        );
+    }
 }

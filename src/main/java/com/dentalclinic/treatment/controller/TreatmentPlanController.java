@@ -1,9 +1,6 @@
 package com.dentalclinic.treatment.controller;
 
-import com.dentalclinic.treatment.dto.CreateTreatmentPlanItemRequest;
-import com.dentalclinic.treatment.dto.CreateTreatmentPlanRequest;
-import com.dentalclinic.treatment.dto.TreatmentPlanItemResponse;
-import com.dentalclinic.treatment.dto.TreatmentPlanResponse;
+import com.dentalclinic.treatment.dto.*;
 import com.dentalclinic.treatment.service.TreatmentPlanService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -104,6 +101,81 @@ public class TreatmentPlanController {
                         .getTreatmentPlanItems(
                                 treatmentPlanId,
                                 clinicId
+                        )
+        );
+    }
+
+    @PutMapping("/{treatmentPlanId}")
+    @PreAuthorize(
+            "hasAuthority('APPOINTMENT_EDIT')"
+    )
+    public ResponseEntity<TreatmentPlanResponse>
+    updateTreatmentPlan(
+            @PathVariable
+            UUID treatmentPlanId,
+
+            @Valid
+            @RequestBody
+            UpdateTreatmentPlanRequest request
+    ) {
+
+        return ResponseEntity.ok(
+                treatmentPlanService
+                        .updateTreatmentPlan(
+                                treatmentPlanId,
+                                request
+                        )
+        );
+    }
+
+    @PatchMapping("/{treatmentPlanId}/status")
+    @PreAuthorize(
+            "hasAuthority('APPOINTMENT_EDIT')"
+    )
+    public ResponseEntity<TreatmentPlanResponse>
+    updateTreatmentPlanStatus(
+            @PathVariable
+            UUID treatmentPlanId,
+
+            @Valid
+            @RequestBody
+            UpdateTreatmentPlanStatusRequest request
+    ) {
+
+        return ResponseEntity.ok(
+                treatmentPlanService
+                        .updateTreatmentPlanStatus(
+                                treatmentPlanId,
+                                request
+                        )
+        );
+    }
+
+    @PatchMapping(
+            "/{treatmentPlanId}/items/{itemId}/status"
+    )
+    @PreAuthorize(
+            "hasAuthority('APPOINTMENT_EDIT')"
+    )
+    public ResponseEntity<TreatmentPlanItemResponse>
+    updateTreatmentPlanItemStatus(
+            @PathVariable
+            UUID treatmentPlanId,
+
+            @PathVariable
+            UUID itemId,
+
+            @Valid
+            @RequestBody
+            UpdateTreatmentPlanItemStatusRequest request
+    ) {
+
+        return ResponseEntity.ok(
+                treatmentPlanService
+                        .updateTreatmentPlanItemStatus(
+                                treatmentPlanId,
+                                itemId,
+                                request
                         )
         );
     }

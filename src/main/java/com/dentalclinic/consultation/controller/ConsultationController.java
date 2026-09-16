@@ -2,6 +2,7 @@ package com.dentalclinic.consultation.controller;
 
 import com.dentalclinic.consultation.dto.CreateConsultationRequest;
 import com.dentalclinic.consultation.dto.ConsultationResponse;
+import com.dentalclinic.consultation.dto.UpdateConsultationStatusRequest;
 import com.dentalclinic.consultation.service.ConsultationService;
 
 import jakarta.validation.Valid;
@@ -58,6 +59,21 @@ public class ConsultationController {
                                 id,
                                 clinicId
                         )
+        );
+    }
+
+    @PatchMapping("/{consultationId}/status")
+    @PreAuthorize("hasAuthority('APPOINTMENT_EDIT')")
+    public ResponseEntity<ConsultationResponse> updateStatus(
+            @PathVariable UUID consultationId,
+            @Valid @RequestBody UpdateConsultationStatusRequest request
+    ) {
+
+        return ResponseEntity.ok(
+                consultationService.updateStatus(
+                        consultationId,
+                        request
+                )
         );
     }
 }

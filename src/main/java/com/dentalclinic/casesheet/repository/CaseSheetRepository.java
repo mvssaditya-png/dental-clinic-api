@@ -58,4 +58,9 @@ public interface CaseSheetRepository
             @Param("consultationId") UUID consultationId,
             @Param("clinicId") UUID clinicId
     );
+
+    Optional<CaseSheet> findByConsultationIdAndClinicId(
+            UUID consultationId,
+            UUID clinicId
+    );
 }

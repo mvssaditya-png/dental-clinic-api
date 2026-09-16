@@ -14,4 +14,6 @@ public interface CaseSheetDiagnosisRepository
     findAllByCaseSheetIdOrderByCreatedAtAsc(
             UUID caseSheetId
     );
+
+    boolean existsByCaseSheetId(UUID caseSheetId);
 }

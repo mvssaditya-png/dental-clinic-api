@@ -24,6 +24,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 import com.dentalclinic.casesheet.dto.CreateCaseSheetClinicalFindingRequest;
@@ -785,5 +786,143 @@ public class CaseSheetService {
                         finding.getCreatedAt()
                 )
                 .build();
+    }
+
+    @Transactional
+    public CaseSheetResponse finalizeCaseSheet(
+            UUID caseSheetId,
+            FinalizeCaseSheetRequest request
+    ) {
+
+        AppUser currentUser =
+                SecurityUtils.getCurrentUser();
+
+        Clinic clinic =
+                resolveClinic(
+                        currentUser,
+                        request.getClinicId()
+                );
+
+        CaseSheet caseSheet =
+                caseSheetRepository
+                        .findByIdAndClinicIdWithDetails(
+                                caseSheetId,
+                                clinic.getId()
+                        )
+                        .orElseThrow(() ->
+                                new IllegalArgumentException(
+                                        "Case sheet not found"
+                                )
+                        );
+
+        /*
+         * Only a DRAFT case sheet can be finalized.
+         */
+        if (caseSheet.getStatus() != CaseSheetStatus.DRAFT) {
+
+            throw new IllegalArgumentException(
+                    "Only DRAFT case sheets can be finalized"
+            );
+        }
+
+        /*
+         * Consultation must still be active.
+         *
+         * We finalize the clinical record first,
+         * then complete the consultation.
+         */
+        Consultation consultation =
+                caseSheet.getConsultation();
+
+        if (consultation == null) {
+
+            throw new IllegalStateException(
+                    "Case sheet is not associated with a consultation"
+            );
+        }
+
+        if (consultation.getStatus() == ConsultationStatus.COMPLETED
+                || consultation.getStatus() == ConsultationStatus.CANCELLED) {
+
+            throw new IllegalArgumentException(
+                    "Case sheet cannot be finalized because consultation is already "
+                            + consultation.getStatus()
+            );
+        }
+
+        /*
+         * Minimum clinical completeness.
+         *
+         * We require a chief complaint because a finalized
+         * clinical record should state why the patient was seen.
+         */
+        if (isBlank(caseSheet.getChiefComplaint())) {
+
+            throw new IllegalArgumentException(
+                    "Chief complaint is required before finalizing the case sheet"
+            );
+        }
+
+        /*
+         * Require at least one diagnosis.
+         *
+         * This is better than depending only on diagnosisSummary
+         * because we already built structured CaseSheetDiagnosis.
+         */
+        boolean hasDiagnosis =
+                caseSheetDiagnosisRepository
+                        .existsByCaseSheetId(
+                                caseSheet.getId()
+                        );
+
+        if (!hasDiagnosis) {
+
+            throw new IllegalArgumentException(
+                    "At least one diagnosis is required before finalizing the case sheet"
+            );
+        }
+
+        /*
+         * IMPORTANT:
+         *
+         * Do NOT require TreatmentPlanStatus.COMPLETED here.
+         *
+         * A patient may have an APPROVED or IN_PROGRESS
+         * treatment plan spanning several appointments.
+         * Finalizing this case sheet only closes the
+         * clinical documentation for this consultation.
+         */
+
+        LocalDateTime now =
+                LocalDateTime.now();
+
+        caseSheet.setStatus(
+                CaseSheetStatus.FINALIZED
+        );
+
+        caseSheet.setFinalizedAt(
+                now
+        );
+
+        caseSheet.setFinalizedBy(
+                currentUser
+        );
+
+        caseSheet.setUpdatedBy(
+                currentUser
+        );
+
+        caseSheet =
+                caseSheetRepository.save(
+                        caseSheet
+                );
+
+        return mapToResponse(
+                caseSheet
+        );
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.trim().isEmpty();
     }
 }
