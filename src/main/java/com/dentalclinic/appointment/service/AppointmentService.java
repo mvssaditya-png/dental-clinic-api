@@ -6,11 +6,14 @@ import com.dentalclinic.appointment.dto.UpdateAppointmentStatusRequest;
 import com.dentalclinic.appointment.entity.*;
 import com.dentalclinic.appointment.repository.AppointmentRepository;
 import com.dentalclinic.appointment.repository.AppointmentStatusHistoryRepository;
+import com.dentalclinic.appointment.repository.DentalChairRepository;
 import com.dentalclinic.clinic.entity.Clinic;
 import com.dentalclinic.clinic.repository.ClinicRepository;
 import com.dentalclinic.consultation.entity.Consultation;
 import com.dentalclinic.consultation.entity.ConsultationStatus;
 import com.dentalclinic.consultation.repository.ConsultationRepository;
+import com.dentalclinic.department.entity.Department;
+import com.dentalclinic.department.repository.DepartmentRepository;
 import com.dentalclinic.doctor.entity.DoctorProfile;
 import com.dentalclinic.doctor.repository.DoctorProfileRepository;
 import com.dentalclinic.patient.entity.Patient;
@@ -39,6 +42,13 @@ public class AppointmentService {
     private final DoctorProfileRepository doctorProfileRepository;
     private final ClinicRepository clinicRepository;
     private final ConsultationRepository consultationRepository;
+
+    /*
+     * Department + Dental Chair repositories.
+     */
+    private final DepartmentRepository departmentRepository;
+    private final DentalChairRepository dentalChairRepository;
+
     @Transactional
     public AppointmentResponse createAppointment(
             CreateAppointmentRequest request
@@ -106,6 +116,70 @@ public class AppointmentService {
         }
 
         /*
+         * Validate optional department.
+         *
+         * The clinic is part of the lookup, so a department
+         * belonging to another clinic cannot be attached.
+         */
+        Department department = null;
+
+        if (request.getDepartmentId() != null) {
+
+            department =
+                    departmentRepository
+                            .findByIdAndClinicId(
+                                    request.getDepartmentId(),
+                                    clinic.getId()
+                            )
+                            .orElseThrow(() ->
+                                    new IllegalArgumentException(
+                                            "Department not found"
+                                    )
+                            );
+
+            if (!Boolean.TRUE.equals(
+                    department.getActive()
+            )) {
+
+                throw new IllegalArgumentException(
+                        "Department is inactive"
+                );
+            }
+        }
+
+        /*
+         * Validate optional dental chair.
+         *
+         * The clinic is part of the lookup, so a chair
+         * belonging to another clinic cannot be attached.
+         */
+        DentalChair chair = null;
+
+        if (request.getChairId() != null) {
+
+            chair =
+                    dentalChairRepository
+                            .findByIdAndClinicId(
+                                    request.getChairId(),
+                                    clinic.getId()
+                            )
+                            .orElseThrow(() ->
+                                    new IllegalArgumentException(
+                                            "Dental chair not found"
+                                    )
+                            );
+
+            if (!Boolean.TRUE.equals(
+                    chair.getActive()
+            )) {
+
+                throw new IllegalArgumentException(
+                        "Dental chair is inactive"
+                );
+            }
+        }
+
+        /*
          * Prevent doctor double-booking.
          */
         boolean overlap =
@@ -121,6 +195,29 @@ public class AppointmentService {
             throw new IllegalArgumentException(
                     "Doctor already has an appointment during this time"
             );
+        }
+
+        /*
+         * Prevent dental chair double-booking.
+         *
+         * Only checked when a chair was selected.
+         */
+        if (chair != null) {
+
+            boolean chairOverlap =
+                    appointmentRepository.existsChairOverlap(
+                            clinic.getId(),
+                            chair.getId(),
+                            request.getAppointmentDate(),
+                            request.getStartTime(),
+                            request.getEndTime()
+                    );
+
+            if (chairOverlap) {
+                throw new IllegalArgumentException(
+                        "Dental chair already has an appointment during this time"
+                );
+            }
         }
 
         int calculatedDuration =
@@ -147,6 +244,12 @@ public class AppointmentService {
                         )
                         .patient(patient)
                         .doctor(doctor)
+
+                        /*
+                         * Department and chair are optional.
+                         */
+                        .department(department)
+                        .chair(chair)
 
                         .appointmentType(
                                 request.getAppointmentType() != null
@@ -512,6 +615,10 @@ public class AppointmentService {
                 newStatus
         );
 
+        /*
+         * Appointment cannot be completed until its
+         * consultation is completed.
+         */
         if (newStatus == AppointmentStatus.COMPLETED) {
 
             Consultation consultation =
@@ -526,7 +633,8 @@ public class AppointmentService {
                                     )
                             );
 
-            if (consultation.getStatus() != ConsultationStatus.COMPLETED) {
+            if (consultation.getStatus()
+                    != ConsultationStatus.COMPLETED) {
 
                 throw new IllegalArgumentException(
                         "Appointment cannot be completed until the consultation is completed"
@@ -567,6 +675,7 @@ public class AppointmentService {
                     );
 
             case CANCELLED -> {
+
                 appointment.setCancelledAt(
                         java.time.LocalDateTime.now()
                 );

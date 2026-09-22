@@ -49,4 +49,19 @@ public interface ReceiptRepository
             @Param("patientId") UUID patientId,
             @Param("clinicId") UUID clinicId
     );
+
+    @Query("""
+    SELECT r
+    FROM Receipt r
+    JOIN FETCH r.clinic
+    JOIN FETCH r.payment
+    JOIN FETCH r.patient
+    JOIN FETCH r.issuedBy
+    WHERE r.id = :receiptId
+      AND r.clinic.id = :clinicId
+""")
+    Optional<Receipt> findByIdAndClinicIdWithDetails(
+            @Param("receiptId") UUID receiptId,
+            @Param("clinicId") UUID clinicId
+    );
 }

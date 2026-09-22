@@ -7,14 +7,16 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-public interface DepartmentRepository extends JpaRepository<Department, UUID> {
+public interface DepartmentRepository
+        extends JpaRepository<Department, UUID> {
 
     Optional<Department> findByClinicIdAndDepartmentCode(
             UUID clinicId,
             String departmentCode
     );
 
-    List<Department> findAllByClinicIdAndActiveTrueOrderByDepartmentNameAsc(
+    List<Department>
+    findAllByClinicIdAndActiveTrueOrderByDepartmentNameAsc(
             UUID clinicId
     );
 
@@ -26,5 +28,10 @@ public interface DepartmentRepository extends JpaRepository<Department, UUID> {
     boolean existsByClinicIdAndDepartmentNameIgnoreCase(
             UUID clinicId,
             String departmentName
+    );
+
+    Optional<Department> findByIdAndClinicId(
+            UUID departmentId,
+            UUID clinicId
     );
 }

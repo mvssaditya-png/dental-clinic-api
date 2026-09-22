@@ -26,4 +26,5 @@ public interface OdontogramConditionRepository
             UUID clinicId,
             String conditionCode
     );
+
 }

@@ -177,11 +177,19 @@ public class InvoiceService {
 
         int displayOrder = 1;
 
-        BigDecimal subtotal = BigDecimal.ZERO;
-        BigDecimal totalDiscount = BigDecimal.ZERO;
-        BigDecimal totalTax = BigDecimal.ZERO;
-        BigDecimal totalAmount = BigDecimal.ZERO;
-
+        /*
+         * Create invoice item snapshots from all non-cancelled
+         * Treatment Plan items.
+         *
+         * IMPORTANT:
+         *
+         * Invoice items preserve the TreatmentPlanItem-level
+         * pricing and discount snapshots.
+         *
+         * The invoice HEADER totals must NOT be recalculated
+         * by summing gross invoice-item amounts because the
+         * Treatment Plan may also contain a plan-level discount.
+         */
         for (TreatmentPlanItem treatmentItem : billableItems) {
 
             InvoiceItem invoiceItem =
@@ -192,45 +200,86 @@ public class InvoiceService {
                             displayOrder++
                     );
 
-            invoiceItem =
-                    invoiceItemRepository.save(invoiceItem);
+            invoiceItemRepository.save(invoiceItem);
+        }
 
-            subtotal = subtotal.add(
-                    invoiceItem.getGrossAmount()
-            );
+        /*
+         * Treatment Plan is the pricing source of truth.
+         *
+         * TreatmentPlan.subtotal:
+         *     Sum of non-cancelled TreatmentPlanItem final amounts.
+         *     Item-level discounts have already been applied.
+         *
+         * TreatmentPlan.discountAmount:
+         *     Plan-level discount.
+         *
+         * TreatmentPlan.finalAmount:
+         *     subtotal - plan-level discount.
+         *
+         * Therefore the Invoice header must snapshot these values
+         * directly instead of rebuilding them from InvoiceItem.
+         */
+        BigDecimal subtotal =
+                money(
+                        treatmentPlan.getSubtotal()
+                );
 
-            totalDiscount = totalDiscount.add(
-                    invoiceItem.getDiscountAmount()
-            );
+        BigDecimal planDiscount =
+                money(
+                        treatmentPlan.getDiscountAmount()
+                );
 
-            totalTax = totalTax.add(
-                    invoiceItem.getTaxAmount()
-            );
+        /*
+         * Tax configuration is not implemented yet.
+         * Keep invoice tax at zero for the current MVP.
+         */
+        BigDecimal totalTax =
+                money(BigDecimal.ZERO);
 
-            totalAmount = totalAmount.add(
-                    invoiceItem.getFinalAmount()
+        BigDecimal totalAmount =
+                money(
+                        treatmentPlan.getFinalAmount()
+                );
+
+        /*
+         * Defensive validation.
+         *
+         * A billable Treatment Plan should always have a positive
+         * final amount before an invoice is created.
+         */
+        if (totalAmount.compareTo(BigDecimal.ZERO) <= 0) {
+
+            throw new IllegalArgumentException(
+                    "Treatment plan final amount must be greater than zero"
             );
         }
 
-        subtotal = money(subtotal);
-        totalDiscount = money(totalDiscount);
-        totalTax = money(totalTax);
-        totalAmount = money(totalAmount);
-
         invoice.setSubtotal(subtotal);
-        invoice.setDiscountAmount(totalDiscount);
-        invoice.setTaxAmount(totalTax);
-        invoice.setTotalAmount(totalAmount);
+
+        invoice.setDiscountAmount(
+                planDiscount
+        );
+
+        invoice.setTaxAmount(
+                totalTax
+        );
+
+        invoice.setTotalAmount(
+                totalAmount
+        );
 
         invoice.setPaidAmount(
                 money(BigDecimal.ZERO)
         );
 
-        invoice.setBalanceAmount(totalAmount);
+        invoice.setBalanceAmount(
+                totalAmount
+        );
 
         invoice.setUpdatedBy(currentUser);
 
-        invoice = invoiceRepository.save(invoice);
+        invoice =
+                invoiceRepository.save(invoice);
 
         List<InvoiceItem> savedItems =
                 invoiceItemRepository

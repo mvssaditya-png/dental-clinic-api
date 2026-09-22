@@ -69,6 +69,28 @@ public interface AppointmentRepository
     );
 
     @Query("""
+    SELECT CASE WHEN COUNT(a) > 0 THEN true ELSE false END
+    FROM Appointment a
+    WHERE a.clinic.id = :clinicId
+      AND a.chair.id = :chairId
+      AND a.appointmentDate = :appointmentDate
+      AND a.status NOT IN (
+            com.dentalclinic.appointment.entity.AppointmentStatus.CANCELLED,
+            com.dentalclinic.appointment.entity.AppointmentStatus.RESCHEDULED,
+            com.dentalclinic.appointment.entity.AppointmentStatus.NO_SHOW
+      )
+      AND a.startTime < :endTime
+      AND a.endTime > :startTime
+""")
+    boolean existsChairOverlap(
+            @Param("clinicId") UUID clinicId,
+            @Param("chairId") UUID chairId,
+            @Param("appointmentDate") LocalDate appointmentDate,
+            @Param("startTime") LocalTime startTime,
+            @Param("endTime") LocalTime endTime
+    );
+
+    @Query("""
     SELECT DISTINCT a
     FROM Appointment a
     JOIN FETCH a.clinic c
