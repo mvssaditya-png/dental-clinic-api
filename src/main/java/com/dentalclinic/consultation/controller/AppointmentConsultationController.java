@@ -19,9 +19,7 @@ public class AppointmentConsultationController {
     private final ConsultationService consultationService;
 
     @GetMapping("/{appointmentId}/consultation")
-    @PreAuthorize(
-            "hasAuthority('APPOINTMENT_VIEW')"
-    )
+    @PreAuthorize("hasAuthority('CONSULTATION_VIEW')")
     public ResponseEntity<ConsultationResponse>
     getConsultationByAppointment(
             @PathVariable UUID appointmentId,

@@ -22,9 +22,7 @@ public class ProcedureController {
     private final ProcedureService procedureService;
 
     @PostMapping
-    @PreAuthorize(
-            "hasAuthority('APPOINTMENT_EDIT')"
-    )
+    @PreAuthorize("hasAuthority('PROCEDURE_MANAGE')")
     public ResponseEntity<ProcedureResponse>
     createProcedure(
             @Valid
@@ -41,9 +39,7 @@ public class ProcedureController {
     }
 
     @GetMapping
-    @PreAuthorize(
-            "hasAuthority('APPOINTMENT_VIEW')"
-    )
+    @PreAuthorize("hasAuthority('PROCEDURE_VIEW')")
     public ResponseEntity<List<ProcedureResponse>>
     getProcedures(
             @RequestParam(required = false)
@@ -59,9 +55,7 @@ public class ProcedureController {
     }
 
     @GetMapping("/{procedureId}")
-    @PreAuthorize(
-            "hasAuthority('APPOINTMENT_VIEW')"
-    )
+    @PreAuthorize("hasAuthority('PROCEDURE_VIEW')")
     public ResponseEntity<ProcedureResponse>
     getProcedure(
             @PathVariable
@@ -81,9 +75,7 @@ public class ProcedureController {
     }
 
     @PostMapping("/{procedureId}/prices")
-    @PreAuthorize(
-            "hasAuthority('APPOINTMENT_EDIT')"
-    )
+    @PreAuthorize("hasAuthority('PROCEDURE_MANAGE')")
     public ResponseEntity<ProcedurePriceResponse>
     addPrice(
             @PathVariable
@@ -104,9 +96,7 @@ public class ProcedureController {
     }
 
     @GetMapping("/{procedureId}/prices")
-    @PreAuthorize(
-            "hasAuthority('APPOINTMENT_VIEW')"
-    )
+    @PreAuthorize("hasAuthority('PROCEDURE_MANAGE')")
     public ResponseEntity<List<ProcedurePriceResponse>>
     getPriceHistory(
             @PathVariable
@@ -126,9 +116,7 @@ public class ProcedureController {
     }
 
     @GetMapping("/{procedureId}/current-price")
-    @PreAuthorize(
-            "hasAuthority('APPOINTMENT_VIEW')"
-    )
+    @PreAuthorize("hasAuthority('PROCEDURE_VIEW')")
     public ResponseEntity<ProcedurePriceResponse>
     getCurrentPrice(
             @PathVariable

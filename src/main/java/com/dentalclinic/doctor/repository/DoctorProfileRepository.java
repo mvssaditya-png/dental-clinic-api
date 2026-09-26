@@ -56,4 +56,17 @@ public interface DoctorProfileRepository
             @Param("doctorId") UUID doctorId,
             @Param("clinicId") UUID clinicId
     );
+
+    Optional<DoctorProfile> findByUserIdAndClinicId(UUID userId, UUID clinicId);
+
+    @Query("""
+        SELECT new com.dentalclinic.appointment.dto.BookingDoctorResponse(
+            dp.id, u.firstName, u.lastName, dp.specialization)
+        FROM DoctorProfile dp JOIN dp.user u
+        WHERE dp.clinic.id = :clinicId AND dp.active = true
+        ORDER BY u.firstName ASC, u.lastName ASC
+        """)
+    List<com.dentalclinic.appointment.dto.BookingDoctorResponse> findBookingDoctorsByClinicId(
+            @Param("clinicId") UUID clinicId);
+
 }

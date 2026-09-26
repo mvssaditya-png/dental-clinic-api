@@ -26,9 +26,7 @@ public class OdontogramToothController {
     @PutMapping(
             "/{odontogramId}/teeth/{toothNumber}"
     )
-    @PreAuthorize(
-            "hasAuthority('APPOINTMENT_EDIT')"
-    )
+    @PreAuthorize("hasAuthority('ODONTOGRAM_EDIT')")
     public ResponseEntity<OdontogramToothResponse>
     updateTooth(
             @PathVariable UUID odontogramId,
@@ -49,9 +47,7 @@ public class OdontogramToothController {
     }
 
     @GetMapping("/{odontogramId}/teeth")
-    @PreAuthorize(
-            "hasAuthority('APPOINTMENT_VIEW')"
-    )
+    @PreAuthorize("hasAuthority('ODONTOGRAM_VIEW')")
     public ResponseEntity<List<OdontogramToothResponse>>
     getTeeth(
             @PathVariable UUID odontogramId,
@@ -70,9 +66,7 @@ public class OdontogramToothController {
     @GetMapping(
             "/{odontogramId}/teeth/{toothNumber}/history"
     )
-    @PreAuthorize(
-            "hasAuthority('APPOINTMENT_VIEW')"
-    )
+    @PreAuthorize("hasAuthority('ODONTOGRAM_VIEW')")
     public ResponseEntity<List<OdontogramToothHistoryResponse>>
     getToothHistory(
             @PathVariable UUID odontogramId,

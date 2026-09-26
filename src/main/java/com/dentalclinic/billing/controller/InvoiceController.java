@@ -21,7 +21,7 @@ public class InvoiceController {
     private final InvoiceService invoiceService;
 
     @PostMapping
-    @PreAuthorize("hasAuthority('APPOINTMENT_EDIT')")
+    @PreAuthorize("hasAuthority('INVOICE_CREATE')")
     public InvoiceResponse createInvoice(
             @Valid @RequestBody CreateInvoiceRequest request
     ) {
@@ -30,7 +30,7 @@ public class InvoiceController {
     }
 
     @GetMapping("/{invoiceId}")
-    @PreAuthorize("hasAuthority('APPOINTMENT_VIEW')")
+    @PreAuthorize("hasAuthority('INVOICE_VIEW')")
     public InvoiceResponse getInvoice(
             @PathVariable UUID invoiceId,
             @RequestParam(required = false) UUID clinicId
@@ -43,7 +43,7 @@ public class InvoiceController {
     }
 
     @GetMapping("/patient/{patientId}")
-    @PreAuthorize("hasAuthority('APPOINTMENT_VIEW')")
+    @PreAuthorize("hasAuthority('INVOICE_VIEW')")
     public List<InvoiceResponse> getPatientInvoices(
             @PathVariable UUID patientId,
             @RequestParam(required = false) UUID clinicId
@@ -56,7 +56,7 @@ public class InvoiceController {
     }
 
     @PatchMapping("/{invoiceId}/issue")
-    @PreAuthorize("hasAuthority('APPOINTMENT_EDIT')")
+    @PreAuthorize("hasAuthority('INVOICE_ISSUE')")
     public InvoiceResponse issueInvoice(
             @PathVariable UUID invoiceId,
             @RequestBody(required = false) IssueInvoiceRequest request
@@ -74,7 +74,7 @@ public class InvoiceController {
     }
 
     @PatchMapping("/{invoiceId}/cancel")
-    @PreAuthorize("hasAuthority('APPOINTMENT_EDIT')")
+    @PreAuthorize("hasAuthority('INVOICE_CANCEL')")
     public InvoiceResponse cancelInvoice(
             @PathVariable UUID invoiceId,
             @Valid @RequestBody CancelInvoiceRequest request

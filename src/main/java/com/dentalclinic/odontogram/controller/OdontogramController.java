@@ -20,9 +20,7 @@ public class OdontogramController {
     private final OdontogramService odontogramService;
 
     @PostMapping("/{patientId}/odontogram")
-    @PreAuthorize(
-            "hasAuthority('APPOINTMENT_EDIT')"
-    )
+    @PreAuthorize("hasAuthority('ODONTOGRAM_EDIT')")
     public ResponseEntity<OdontogramResponse>
     createOdontogram(
             @PathVariable UUID patientId,
@@ -42,9 +40,7 @@ public class OdontogramController {
     }
 
     @GetMapping("/{patientId}/odontogram")
-    @PreAuthorize(
-            "hasAuthority('APPOINTMENT_VIEW')"
-    )
+    @PreAuthorize("hasAuthority('ODONTOGRAM_VIEW')")
     public ResponseEntity<OdontogramResponse>
     getOdontogram(
             @PathVariable UUID patientId,

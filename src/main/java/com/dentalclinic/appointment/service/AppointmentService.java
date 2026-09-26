@@ -764,4 +764,25 @@ public class AppointmentService {
             );
         }
     }
+
+    @Transactional(readOnly = true)
+    public List<com.dentalclinic.appointment.dto.BookingDoctorResponse> getBookingDoctors(UUID requestedClinicId) {
+        Clinic clinic = resolveClinic(SecurityUtils.getCurrentUser(), requestedClinicId);
+        return doctorProfileRepository.findBookingDoctorsByClinicId(clinic.getId());
+    }
+
+    @Transactional(readOnly = true)
+    public List<AppointmentResponse> getMyAppointments(LocalDate date) {
+        AppUser currentUser = SecurityUtils.getCurrentUser();
+        if (date == null) throw new IllegalArgumentException("Appointment date is required");
+        if (currentUser.getClinic() == null) {
+            throw new IllegalArgumentException("A clinic-linked doctor account is required");
+        }
+        UUID clinicId = currentUser.getClinic().getId();
+        doctorProfileRepository.findByUserIdAndClinicId(currentUser.getId(), clinicId)
+                .orElseThrow(() -> new IllegalArgumentException("Doctor profile not found for this account and clinic"));
+        return appointmentRepository.findOwnDailyAppointmentsWithDetails(clinicId, currentUser.getId(), date)
+                .stream().map(this::mapToResponse).toList();
+    }
+
 }

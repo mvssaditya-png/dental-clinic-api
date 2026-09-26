@@ -19,9 +19,7 @@ public class ConsultationCaseSheetController {
     private final CaseSheetService caseSheetService;
 
     @GetMapping("/{consultationId}/case-sheet")
-    @PreAuthorize(
-            "hasAuthority('APPOINTMENT_VIEW')"
-    )
+    @PreAuthorize("hasAuthority('CASE_SHEET_VIEW')")
     public ResponseEntity<CaseSheetResponse>
     getCaseSheetByConsultation(
             @PathVariable UUID consultationId,

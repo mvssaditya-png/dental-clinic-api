@@ -24,9 +24,7 @@ public class OdontogramConditionController {
     private final OdontogramService odontogramService;
 
     @PostMapping
-    @PreAuthorize(
-            "hasAuthority('APPOINTMENT_EDIT')"
-    )
+    @PreAuthorize("hasAuthority('ODONTOGRAM_CONFIGURE')")
     public ResponseEntity<OdontogramConditionResponse>
     createCondition(
             @Valid
@@ -43,9 +41,7 @@ public class OdontogramConditionController {
     }
 
     @GetMapping
-    @PreAuthorize(
-            "hasAuthority('APPOINTMENT_VIEW')"
-    )
+    @PreAuthorize("hasAuthority('ODONTOGRAM_VIEW')")
     public ResponseEntity<List<OdontogramConditionResponse>>
     getConditions(
             @RequestParam(required = false)

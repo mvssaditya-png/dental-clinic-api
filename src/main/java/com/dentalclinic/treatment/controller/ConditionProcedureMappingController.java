@@ -21,9 +21,7 @@ public class ConditionProcedureMappingController {
             conditionProcedureMappingService;
 
     @PostMapping("/{conditionId}/procedures")
-    @PreAuthorize(
-            "hasAuthority('APPOINTMENT_EDIT')"
-    )
+    @PreAuthorize("hasAuthority('ODONTOGRAM_CONFIGURE')")
     public ResponseEntity<ConditionProcedureMappingResponse>
     createMapping(
             @PathVariable
@@ -44,9 +42,7 @@ public class ConditionProcedureMappingController {
     }
 
     @GetMapping("/{conditionId}/procedures")
-    @PreAuthorize(
-            "hasAuthority('APPOINTMENT_VIEW')"
-    )
+    @PreAuthorize("hasAuthority('PROCEDURE_VIEW')")
     public ResponseEntity<List<ConditionProcedureMappingResponse>>
     getSuggestedProcedures(
             @PathVariable

@@ -26,7 +26,7 @@ public class OdontogramColourConfigController {
     private final OdontogramColourConfigService colourConfigService;
 
     @PostMapping
-    @PreAuthorize("hasAuthority('APPOINTMENT_EDIT')")
+    @PreAuthorize("hasAuthority('ODONTOGRAM_CONFIGURE')")
     public ResponseEntity<OdontogramColourConfigResponse>
     saveColourConfig(
             @Valid
@@ -43,7 +43,7 @@ public class OdontogramColourConfigController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAuthority('APPOINTMENT_VIEW')")
+    @PreAuthorize("hasAuthority('ODONTOGRAM_VIEW')")
     public ResponseEntity<List<OdontogramColourConfigResponse>>
     getColourConfigs(
             @RequestParam(required = false)

@@ -75,7 +75,7 @@ public class AppointmentController {
     }
 
     @PatchMapping("/{id}/status")
-    @PreAuthorize("hasAuthority('APPOINTMENT_EDIT')")
+    @PreAuthorize("@appointmentAuthorization.canUpdateStatus(authentication, #p1)")
     public ResponseEntity<AppointmentResponse>
     updateAppointmentStatus(
             @PathVariable UUID id,
@@ -90,4 +90,18 @@ public class AppointmentController {
                 )
         );
     }
+
+    @GetMapping("/booking-doctors")
+    @PreAuthorize("hasAuthority('APPOINTMENT_CREATE')")
+    public List<com.dentalclinic.appointment.dto.BookingDoctorResponse> getBookingDoctors(
+            @RequestParam(required = false) UUID clinicId) {
+        return appointmentService.getBookingDoctors(clinicId);
+    }
+
+    @GetMapping("/mine")
+    @PreAuthorize("hasRole('DOCTOR') and hasAuthority('APPOINTMENT_VIEW')")
+    public List<AppointmentResponse> getMyAppointments(@RequestParam LocalDate date) {
+        return appointmentService.getMyAppointments(date);
+    }
+
 }

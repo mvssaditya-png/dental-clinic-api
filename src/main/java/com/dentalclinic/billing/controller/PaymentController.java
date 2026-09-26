@@ -19,7 +19,7 @@ public class PaymentController {
     private final PaymentService paymentService;
 
     @PostMapping
-    @PreAuthorize("hasAuthority('APPOINTMENT_EDIT')")
+    @PreAuthorize("hasAuthority('PAYMENT_RECEIVE')")
     public PaymentResponse createPayment(
             @Valid
             @RequestBody CreatePaymentRequest request
@@ -29,7 +29,7 @@ public class PaymentController {
     }
 
     @GetMapping("/{paymentId}")
-    @PreAuthorize("hasAuthority('APPOINTMENT_VIEW')")
+    @PreAuthorize("hasAuthority('PAYMENT_VIEW')")
     public PaymentResponse getPayment(
             @PathVariable UUID paymentId,
             @RequestParam(required = false) UUID clinicId
@@ -42,7 +42,7 @@ public class PaymentController {
     }
 
     @GetMapping("/patient/{patientId}")
-    @PreAuthorize("hasAuthority('APPOINTMENT_VIEW')")
+    @PreAuthorize("hasAuthority('PAYMENT_VIEW')")
     public List<PaymentResponse> getPatientPayments(
             @PathVariable UUID patientId,
             @RequestParam(required = false) UUID clinicId

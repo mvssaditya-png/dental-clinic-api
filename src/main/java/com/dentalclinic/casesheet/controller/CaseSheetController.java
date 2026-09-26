@@ -23,9 +23,7 @@ public class CaseSheetController {
     private final CaseSheetService caseSheetService;
 
     @PostMapping
-    @PreAuthorize(
-            "hasAuthority('APPOINTMENT_EDIT')"
-    )
+    @PreAuthorize("hasAuthority('CASE_SHEET_CREATE')")
     public ResponseEntity<CaseSheetResponse>
     createCaseSheet(
             @Valid
@@ -42,9 +40,7 @@ public class CaseSheetController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize(
-            "hasAuthority('APPOINTMENT_EDIT')"
-    )
+    @PreAuthorize("hasAuthority('CASE_SHEET_EDIT')")
     public ResponseEntity<CaseSheetResponse>
     updateCaseSheet(
             @PathVariable UUID id,
@@ -65,9 +61,7 @@ public class CaseSheetController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize(
-            "hasAuthority('APPOINTMENT_VIEW')"
-    )
+    @PreAuthorize("hasAuthority('CASE_SHEET_VIEW')")
     public ResponseEntity<CaseSheetResponse>
     getCaseSheet(
             @PathVariable UUID id,
@@ -85,7 +79,7 @@ public class CaseSheetController {
     }
 
     @PostMapping("/{id}/diagnoses")
-    @PreAuthorize("hasAuthority('APPOINTMENT_EDIT')")
+    @PreAuthorize("hasAuthority('CASE_SHEET_EDIT')")
     public ResponseEntity<CaseSheetDiagnosisResponse>
     addDiagnosis(
             @PathVariable UUID id,
@@ -107,7 +101,7 @@ public class CaseSheetController {
     }
 
     @GetMapping("/{id}/diagnoses")
-    @PreAuthorize("hasAuthority('APPOINTMENT_VIEW')")
+    @PreAuthorize("hasAuthority('CASE_SHEET_VIEW')")
     public ResponseEntity<List<CaseSheetDiagnosisResponse>>
     getDiagnoses(
             @PathVariable UUID id,
@@ -124,9 +118,7 @@ public class CaseSheetController {
     }
 
     @PostMapping("/{id}/findings")
-    @PreAuthorize(
-            "hasAuthority('APPOINTMENT_EDIT')"
-    )
+    @PreAuthorize("hasAuthority('CASE_SHEET_EDIT')")
     public ResponseEntity<CaseSheetClinicalFindingResponse>
     addClinicalFinding(
             @PathVariable UUID id,
@@ -150,9 +142,7 @@ public class CaseSheetController {
     }
 
     @GetMapping("/{id}/findings")
-    @PreAuthorize(
-            "hasAuthority('APPOINTMENT_VIEW')"
-    )
+    @PreAuthorize("hasAuthority('CASE_SHEET_VIEW')")
     public ResponseEntity<List<CaseSheetClinicalFindingResponse>>
     getClinicalFindings(
             @PathVariable UUID id,
@@ -170,7 +160,7 @@ public class CaseSheetController {
     }
 
     @PatchMapping("/{caseSheetId}/finalize")
-    @PreAuthorize("hasAuthority('APPOINTMENT_EDIT')")
+    @PreAuthorize("hasAuthority('CASE_SHEET_FINALIZE')")
     public ResponseEntity<CaseSheetResponse> finalizeCaseSheet(
             @PathVariable UUID caseSheetId,
             @Valid @RequestBody FinalizeCaseSheetRequest request

@@ -124,4 +124,22 @@ public interface AppointmentRepository
             @Param("appointmentId") UUID appointmentId,
             @Param("clinicId") UUID clinicId
     );
+
+    @Query("""
+        SELECT DISTINCT a FROM Appointment a
+        JOIN FETCH a.clinic c
+        JOIN FETCH a.patient p
+        JOIN FETCH a.doctor d
+        JOIN FETCH d.user du
+        LEFT JOIN FETCH a.department dep
+        LEFT JOIN FETCH a.chair ch
+        WHERE c.id = :clinicId AND d.clinic.id = :clinicId
+          AND du.id = :userId AND a.appointmentDate = :date
+        ORDER BY a.startTime ASC
+        """)
+    List<Appointment> findOwnDailyAppointmentsWithDetails(
+            @Param("clinicId") UUID clinicId,
+            @Param("userId") UUID userId,
+            @Param("date") java.time.LocalDate date);
+
 }

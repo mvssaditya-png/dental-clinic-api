@@ -20,9 +20,7 @@ public class TreatmentPlanController {
             treatmentPlanService;
 
     @PostMapping
-    @PreAuthorize(
-            "hasAuthority('APPOINTMENT_EDIT')"
-    )
+    @PreAuthorize("hasAuthority('TREATMENT_PLAN_CREATE')")
     public ResponseEntity<TreatmentPlanResponse>
     createTreatmentPlan(
             @Valid
@@ -39,9 +37,7 @@ public class TreatmentPlanController {
     }
 
     @GetMapping("/{treatmentPlanId}")
-    @PreAuthorize(
-            "hasAuthority('APPOINTMENT_VIEW')"
-    )
+    @PreAuthorize("hasAuthority('TREATMENT_PLAN_VIEW')")
     public ResponseEntity<TreatmentPlanResponse>
     getTreatmentPlan(
             @PathVariable
@@ -61,9 +57,7 @@ public class TreatmentPlanController {
     }
 
     @PostMapping("/{treatmentPlanId}/items")
-    @PreAuthorize(
-            "hasAuthority('APPOINTMENT_EDIT')"
-    )
+    @PreAuthorize("hasAuthority('TREATMENT_PLAN_EDIT')")
     public ResponseEntity<TreatmentPlanItemResponse>
     addTreatmentPlanItem(
             @PathVariable
@@ -84,9 +78,7 @@ public class TreatmentPlanController {
     }
 
     @GetMapping("/{treatmentPlanId}/items")
-    @PreAuthorize(
-            "hasAuthority('APPOINTMENT_VIEW')"
-    )
+    @PreAuthorize("hasAuthority('TREATMENT_PLAN_VIEW')")
     public ResponseEntity<List<TreatmentPlanItemResponse>>
     getTreatmentPlanItems(
             @PathVariable
@@ -106,9 +98,7 @@ public class TreatmentPlanController {
     }
 
     @PutMapping("/{treatmentPlanId}")
-    @PreAuthorize(
-            "hasAuthority('APPOINTMENT_EDIT')"
-    )
+    @PreAuthorize("hasAuthority('TREATMENT_PLAN_EDIT')")
     public ResponseEntity<TreatmentPlanResponse>
     updateTreatmentPlan(
             @PathVariable
@@ -129,9 +119,7 @@ public class TreatmentPlanController {
     }
 
     @PatchMapping("/{treatmentPlanId}/status")
-    @PreAuthorize(
-            "hasAuthority('APPOINTMENT_EDIT')"
-    )
+    @PreAuthorize("@treatmentPlanAuthorization.canUpdateStatus(authentication, #p1)")
     public ResponseEntity<TreatmentPlanResponse>
     updateTreatmentPlanStatus(
             @PathVariable
@@ -154,9 +142,7 @@ public class TreatmentPlanController {
     @PatchMapping(
             "/{treatmentPlanId}/items/{itemId}/status"
     )
-    @PreAuthorize(
-            "hasAuthority('APPOINTMENT_EDIT')"
-    )
+    @PreAuthorize("hasAuthority('TREATMENT_PLAN_EDIT')")
     public ResponseEntity<TreatmentPlanItemResponse>
     updateTreatmentPlanItemStatus(
             @PathVariable

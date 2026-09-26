@@ -24,9 +24,7 @@ public class ConsultationController {
     private final ConsultationService consultationService;
 
     @PostMapping
-    @PreAuthorize(
-            "hasAuthority('APPOINTMENT_EDIT')"
-    )
+    @PreAuthorize("hasAuthority('CONSULTATION_MANAGE')")
     public ResponseEntity<ConsultationResponse>
     createConsultation(
             @Valid
@@ -43,9 +41,7 @@ public class ConsultationController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize(
-            "hasAuthority('APPOINTMENT_VIEW')"
-    )
+    @PreAuthorize("hasAuthority('CONSULTATION_VIEW')")
     public ResponseEntity<ConsultationResponse>
     getConsultation(
             @PathVariable UUID id,
@@ -63,7 +59,7 @@ public class ConsultationController {
     }
 
     @PatchMapping("/{consultationId}/status")
-    @PreAuthorize("hasAuthority('APPOINTMENT_EDIT')")
+    @PreAuthorize("hasAuthority('CONSULTATION_MANAGE')")
     public ResponseEntity<ConsultationResponse> updateStatus(
             @PathVariable UUID consultationId,
             @Valid @RequestBody UpdateConsultationStatusRequest request

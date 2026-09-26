@@ -19,7 +19,7 @@ public class ReceiptController {
     private final ReceiptService receiptService;
 
     @PostMapping
-    @PreAuthorize("hasAuthority('APPOINTMENT_EDIT')")
+    @PreAuthorize("hasAuthority('RECEIPT_GENERATE')")
     public ReceiptResponse createReceipt(
             @Valid
             @RequestBody CreateReceiptRequest request
@@ -29,7 +29,7 @@ public class ReceiptController {
     }
 
     @GetMapping("/{receiptId}")
-    @PreAuthorize("hasAuthority('APPOINTMENT_VIEW')")
+    @PreAuthorize("hasAuthority('PAYMENT_VIEW')")
     public ReceiptResponse getReceipt(
             @PathVariable UUID receiptId,
             @RequestParam(required = false) UUID clinicId
@@ -42,7 +42,7 @@ public class ReceiptController {
     }
 
     @GetMapping("/patient/{patientId}")
-    @PreAuthorize("hasAuthority('APPOINTMENT_VIEW')")
+    @PreAuthorize("hasAuthority('PAYMENT_VIEW')")
     public List<ReceiptResponse> getPatientReceipts(
             @PathVariable UUID patientId,
             @RequestParam(required = false) UUID clinicId
@@ -55,7 +55,7 @@ public class ReceiptController {
     }
 
     @GetMapping("/payment/{paymentId}")
-    @PreAuthorize("hasAuthority('APPOINTMENT_VIEW')")
+    @PreAuthorize("hasAuthority('PAYMENT_VIEW')")
     public ReceiptResponse getReceiptByPayment(
             @PathVariable UUID paymentId,
             @RequestParam(required = false) UUID clinicId
