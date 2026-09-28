@@ -8,6 +8,7 @@ import com.dentalclinic.security.repository.UserRoleRepository;
 import com.dentalclinic.user.entity.AppUser;
 import com.dentalclinic.user.entity.UserStatus;
 import com.dentalclinic.user.repository.AppUserRepository;
+import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -50,11 +51,24 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String token = authHeader.substring(7);
 
         if (!jwtService.isTokenValid(token)) {
+            SecurityContextHolder.clearContext();
             filterChain.doFilter(request, response);
             return;
         }
 
-        UUID userId = jwtService.extractUserId(token);
+        UUID userId;
+        try {
+            String subject = jwtService.extractSubject(token);
+            userId = subject == null ? null : UUID.fromString(subject);
+        } catch (JwtException | IllegalArgumentException ex) {
+            SecurityContextHolder.clearContext();
+            userId = null;
+        }
+        if (userId == null) {
+            SecurityContextHolder.clearContext();
+            filterChain.doFilter(request, response);
+            return;
+        }
 
         AppUser user = appUserRepository
                 .findByIdWithClinic(userId)
@@ -62,6 +76,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 .orElse(null);
 
         if (user == null) {
+            SecurityContextHolder.clearContext();
             filterChain.doFilter(request, response);
             return;
         }

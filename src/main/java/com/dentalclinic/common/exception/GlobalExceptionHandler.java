@@ -1,5 +1,12 @@
 package com.dentalclinic.common.exception;
 
+import com.dentalclinic.security.handler.SecurityErrorHandler;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.AuthenticationException;
+import java.io.IOException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -11,7 +18,23 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 @RestControllerAdvice
+@RequiredArgsConstructor
 public class GlobalExceptionHandler {
+
+    private final SecurityErrorHandler securityErrorHandler;
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public void handleAccessDenied(AccessDeniedException ex, HttpServletRequest request,
+                                   HttpServletResponse response) throws IOException {
+        securityErrorHandler.handle(request, response, ex);
+    }
+
+    @ExceptionHandler(AuthenticationException.class)
+    public void handleAuthentication(AuthenticationException ex, HttpServletRequest request,
+                                     HttpServletResponse response) throws IOException {
+        securityErrorHandler.commence(request, response, ex);
+    }
+
 
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, Object>> handleIllegalArgumentException(

@@ -2,6 +2,7 @@ package com.dentalclinic.security.config;
 
 import com.dentalclinic.security.filter.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
+import com.dentalclinic.security.handler.SecurityErrorHandler;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -16,6 +17,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final SecurityErrorHandler securityErrorHandler;
 
     @Bean
     public SecurityFilterChain securityFilterChain(
@@ -31,6 +33,11 @@ public class SecurityConfig {
                         session.sessionCreationPolicy(
                                 SessionCreationPolicy.STATELESS
                         )
+                )
+
+                .exceptionHandling(errors -> errors
+                        .authenticationEntryPoint(securityErrorHandler)
+                        .accessDeniedHandler(securityErrorHandler)
                 )
 
                 .authorizeHttpRequests(auth ->
