@@ -35,6 +35,8 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class AppointmentService {
 
+    private final com.dentalclinic.clinic.service.TenantClinicResolver tenantClinicResolver;
+
     private final AppointmentRepository appointmentRepository;
     private final AppointmentStatusHistoryRepository statusHistoryRepository;
 
@@ -457,28 +459,8 @@ public class AppointmentService {
                 .build();
     }
 
-    private Clinic resolveClinic(
-            AppUser currentUser,
-            UUID requestedClinicId
-    ) {
-
-        if (currentUser.getClinic() != null) {
-            return currentUser.getClinic();
-        }
-
-        if (requestedClinicId == null) {
-            throw new IllegalArgumentException(
-                    "clinicId is required for platform users"
-            );
-        }
-
-        return clinicRepository
-                .findById(requestedClinicId)
-                .orElseThrow(() ->
-                        new IllegalArgumentException(
-                                "Clinic not found"
-                        )
-                );
+    private Clinic resolveClinic(AppUser currentUser, java.util.UUID requestedClinicId) {
+        return tenantClinicResolver.resolve(currentUser, requestedClinicId, "clinicId is required for platform users");
     }
 
     private String normalizeNullable(
@@ -778,7 +760,7 @@ public class AppointmentService {
         if (currentUser.getClinic() == null) {
             throw new IllegalArgumentException("A clinic-linked doctor account is required");
         }
-        UUID clinicId = currentUser.getClinic().getId();
+        UUID clinicId = tenantClinicResolver.resolve(currentUser, null, "A clinic-linked doctor account is required").getId();
         doctorProfileRepository.findByUserIdAndClinicId(currentUser.getId(), clinicId)
                 .orElseThrow(() -> new IllegalArgumentException("Doctor profile not found for this account and clinic"));
         return appointmentRepository.findOwnDailyAppointmentsWithDetails(clinicId, currentUser.getId(), date)

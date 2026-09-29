@@ -27,6 +27,8 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class OdontogramColourConfigService {
 
+    private final com.dentalclinic.clinic.service.TenantClinicResolver tenantClinicResolver;
+
     private final OdontogramColourConfigRepository colourConfigRepository;
     private final OdontogramConditionRepository conditionRepository;
     private final ClinicRepository clinicRepository;
@@ -166,35 +168,7 @@ public class OdontogramColourConfigService {
                 .build();
     }
 
-    private Clinic resolveClinic(
-            AppUser currentUser,
-            UUID requestedClinicId
-    ) {
-
-        /*
-         * Normal clinic user:
-         * always use their own clinic.
-         */
-        if (currentUser.getClinic() != null) {
-            return currentUser.getClinic();
-        }
-
-        /*
-         * Platform user:
-         * clinic context must be explicitly supplied.
-         */
-        if (requestedClinicId == null) {
-            throw new IllegalArgumentException(
-                    "clinicId is required for platform users"
-            );
-        }
-
-        return clinicRepository
-                .findById(requestedClinicId)
-                .orElseThrow(() ->
-                        new IllegalArgumentException(
-                                "Clinic not found"
-                        )
-                );
+    private Clinic resolveClinic(AppUser currentUser, java.util.UUID requestedClinicId) {
+        return tenantClinicResolver.resolve(currentUser, requestedClinicId, "clinicId is required for platform users");
     }
 }

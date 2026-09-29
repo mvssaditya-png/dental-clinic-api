@@ -44,6 +44,7 @@ class SecurityHttpErrorHandlingTest {
         JwtAuthenticationFilter.class, AppointmentAuthorization.class, TreatmentPlanAuthorization.class,
         AppointmentController.class, TreatmentPlanController.class, ProbeController.class})
     static class Config {
+        @Bean com.dentalclinic.clinic.service.ClinicAccessPolicy clinicAccessPolicy() { return new com.dentalclinic.clinic.service.ClinicAccessPolicy(); }
         @Bean ObjectMapper objectMapper() { return JsonMapper.builder().build(); }
         @Bean JwtService jwtService() { return mock(JwtService.class); }
         @Bean AppUserRepository users() { return mock(AppUserRepository.class); }

@@ -24,8 +24,12 @@ class AppointmentLookupServiceTest {
     @Mock DoctorProfileRepository doctors;
     @Mock ClinicRepository clinics;
     @InjectMocks AppointmentService service;
+    @BeforeEach void configureResolver() {
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "tenantClinicResolver",
+            new com.dentalclinic.clinic.service.TenantClinicResolver(clinics, new com.dentalclinic.clinic.service.ClinicAccessPolicy()));
+    }
     private final UUID clinicId = UUID.randomUUID(), userId = UUID.randomUUID();
-    private Clinic clinic() { return Clinic.builder().id(clinicId).build(); }
+    private Clinic clinic() { return Clinic.builder().id(clinicId).active(true).build(); }
     private void login(Clinic clinic) {
         AppUser user = AppUser.builder().id(userId).clinic(clinic).build();
         SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(user, null, List.of()));

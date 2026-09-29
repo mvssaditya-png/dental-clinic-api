@@ -41,6 +41,7 @@ public class OtpService {
     private final UserRoleRepository userRoleRepository;
     private final RolePermissionRepository rolePermissionRepository;
     private final JwtService jwtService;
+    private final com.dentalclinic.clinic.service.ClinicAccessPolicy clinicAccessPolicy;
     @Transactional
     public SendOtpResponse sendLoginOtp(SendOtpRequest request) {
 
@@ -48,10 +49,8 @@ public class OtpService {
 
         // Only registered ACTIVE users can login.
         boolean activeUserExists =
-                appUserRepository.existsByPhoneAndStatus(
-                        phone,
-                        UserStatus.ACTIVE
-                );
+                appUserRepository.findAllByPhoneAndStatus(phone, UserStatus.ACTIVE)
+                        .stream().anyMatch(clinicAccessPolicy::isLoginEligible);
 
         if (!activeUserExists) {
             throw new IllegalArgumentException(
@@ -182,6 +181,9 @@ public class OtpService {
         }
 
         AppUser user = users.get(0);
+        if (!clinicAccessPolicy.isLoginEligible(user)) {
+            throw new IllegalArgumentException("No active user found for this mobile number");
+        }
 
         verification.setUsed(true);
         verification.setVerifiedAt(LocalDateTime.now());

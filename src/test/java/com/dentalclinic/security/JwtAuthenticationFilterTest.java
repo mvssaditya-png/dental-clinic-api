@@ -29,7 +29,7 @@ class JwtAuthenticationFilterTest {
         jwt = new JwtService(); ReflectionTestUtils.setField(jwt,"jwtSecret",SECRET);
         ReflectionTestUtils.setField(jwt,"jwtExpirationMs",60000L);
         users=mock(AppUserRepository.class); roles=mock(UserRoleRepository.class); permissions=mock(RolePermissionRepository.class);
-        filter=new JwtAuthenticationFilter(jwt,users,roles,permissions);
+        filter=new JwtAuthenticationFilter(jwt,users,roles,permissions, new com.dentalclinic.clinic.service.ClinicAccessPolicy(), new com.dentalclinic.security.handler.SecurityErrorHandler(tools.jackson.databind.json.JsonMapper.builder().build()));
     }
     @AfterEach void cleanup() { SecurityContextHolder.clearContext(); }
     // Synthetic credentials are confined to isolated automated tests, never live API calls.
@@ -57,7 +57,7 @@ class JwtAuthenticationFilterTest {
         verifyNoInteractions(users,roles,permissions);
     }
     @Test void expirationBetweenValidationAndExtractionContinuesAnonymous() throws Exception {
-        jwt=mock(JwtService.class); filter=new JwtAuthenticationFilter(jwt,users,roles,permissions);
+        jwt=mock(JwtService.class); filter=new JwtAuthenticationFilter(jwt,users,roles,permissions, new com.dentalclinic.clinic.service.ClinicAccessPolicy(), new com.dentalclinic.security.handler.SecurityErrorHandler(tools.jackson.databind.json.JsonMapper.builder().build()));
         when(jwt.isTokenValid("race")).thenReturn(true);
         when(jwt.extractSubject("race")).thenThrow(new io.jsonwebtoken.ExpiredJwtException(null,null,"expired"));
         expectAnonymous("race"); verifyNoInteractions(users,roles,permissions);

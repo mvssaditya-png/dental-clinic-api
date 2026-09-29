@@ -35,6 +35,8 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class InvoiceService {
 
+    private final com.dentalclinic.clinic.service.TenantClinicResolver tenantClinicResolver;
+
     private static final Set<TreatmentPlanStatus> BILLABLE_PLAN_STATUSES =
             EnumSet.of(
                     TreatmentPlanStatus.APPROVED,
@@ -647,28 +649,8 @@ public class InvoiceService {
                 .build();
     }
 
-    private Clinic resolveClinic(
-            AppUser currentUser,
-            UUID requestedClinicId
-    ) {
-
-        if (currentUser.getClinic() != null) {
-            return currentUser.getClinic();
-        }
-
-        if (requestedClinicId == null) {
-            throw new IllegalArgumentException(
-                    "clinicId is required"
-            );
-        }
-
-        return clinicRepository
-                .findById(requestedClinicId)
-                .orElseThrow(() ->
-                        new IllegalArgumentException(
-                                "Clinic not found"
-                        )
-                );
+    private Clinic resolveClinic(AppUser currentUser, java.util.UUID requestedClinicId) {
+        return tenantClinicResolver.resolve(currentUser, requestedClinicId, "clinicId is required");
     }
 
     private String buildPatientName(Patient patient) {

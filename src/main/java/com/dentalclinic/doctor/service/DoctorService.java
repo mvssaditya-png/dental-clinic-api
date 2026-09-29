@@ -27,6 +27,8 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class DoctorService {
 
+    private final com.dentalclinic.clinic.service.TenantClinicResolver tenantClinicResolver;
+
     private final DoctorProfileRepository doctorProfileRepository;
     private final AppUserRepository appUserRepository;
     private final RoleRepository roleRepository;
@@ -167,36 +169,8 @@ public class DoctorService {
         return mapToResponse(doctor);
     }
 
-    private Clinic resolveClinic(
-            AppUser currentUser,
-            java.util.UUID requestedClinicId
-    ) {
-
-        /*
-         * Normal clinic user:
-         * Always force their own clinic.
-         */
-        if (currentUser.getClinic() != null) {
-            return currentUser.getClinic();
-        }
-
-        /*
-         * Platform SUPER_ADMIN:
-         * clinic must be supplied.
-         */
-        if (requestedClinicId == null) {
-            throw new IllegalArgumentException(
-                    "clinicId is required for platform users"
-            );
-        }
-
-        return clinicRepository
-                .findById(requestedClinicId)
-                .orElseThrow(() ->
-                        new IllegalArgumentException(
-                                "Clinic not found"
-                        )
-                );
+    private Clinic resolveClinic(AppUser currentUser, java.util.UUID requestedClinicId) {
+        return tenantClinicResolver.resolve(currentUser, requestedClinicId, "clinicId is required for platform users");
     }
 
     private DoctorResponse mapToResponse(

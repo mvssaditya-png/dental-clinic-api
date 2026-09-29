@@ -33,6 +33,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final AppUserRepository appUserRepository;
     private final UserRoleRepository userRoleRepository;
     private final RolePermissionRepository rolePermissionRepository;
+    private final com.dentalclinic.clinic.service.ClinicAccessPolicy clinicAccessPolicy;
+    private final com.dentalclinic.security.handler.SecurityErrorHandler securityErrorHandler;
 
     @Override
     protected void doFilterInternal(
@@ -121,6 +123,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             SecurityContextHolder
                     .getContext()
                     .setAuthentication(authentication);
+        }
+
+        try {
+            clinicAccessPolicy.requireUserClinicActive(user);
+        } catch (org.springframework.security.access.AccessDeniedException denial) {
+            securityErrorHandler.handle(request, response, denial);
+            SecurityContextHolder.clearContext();
+            return;
         }
 
         filterChain.doFilter(request, response);

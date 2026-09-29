@@ -26,6 +26,8 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class ConditionProcedureMappingService {
 
+    private final com.dentalclinic.clinic.service.TenantClinicResolver tenantClinicResolver;
+
     private final ConditionProcedureMappingRepository
             conditionProcedureMappingRepository;
 
@@ -305,29 +307,7 @@ public class ConditionProcedureMappingService {
                 : trimmed;
     }
 
-    private Clinic resolveClinic(
-            AppUser currentUser,
-            UUID requestedClinicId
-    ) {
-
-        if (currentUser.getClinic() != null) {
-            return currentUser.getClinic();
-        }
-
-        if (requestedClinicId == null) {
-            throw new IllegalArgumentException(
-                    "clinicId is required"
-            );
-        }
-
-        return clinicRepository
-                .findById(
-                        requestedClinicId
-                )
-                .orElseThrow(() ->
-                        new IllegalArgumentException(
-                                "Clinic not found"
-                        )
-                );
+    private Clinic resolveClinic(AppUser currentUser, java.util.UUID requestedClinicId) {
+        return tenantClinicResolver.resolve(currentUser, requestedClinicId, "clinicId is required");
     }
 }

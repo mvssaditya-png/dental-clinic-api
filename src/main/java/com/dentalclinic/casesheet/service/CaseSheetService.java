@@ -35,6 +35,8 @@ import com.dentalclinic.casesheet.repository.CaseSheetClinicalFindingRepository;
 @RequiredArgsConstructor
 public class CaseSheetService {
 
+    private final com.dentalclinic.clinic.service.TenantClinicResolver tenantClinicResolver;
+
     private final CaseSheetRepository caseSheetRepository;
     private final ConsultationRepository consultationRepository;
     private final ClinicRepository clinicRepository;
@@ -318,28 +320,8 @@ public class CaseSheetService {
                 .build();
     }
 
-    private Clinic resolveClinic(
-            AppUser currentUser,
-            UUID requestedClinicId
-    ) {
-
-        if (currentUser.getClinic() != null) {
-            return currentUser.getClinic();
-        }
-
-        if (requestedClinicId == null) {
-            throw new IllegalArgumentException(
-                    "clinicId is required for platform users"
-            );
-        }
-
-        return clinicRepository
-                .findById(requestedClinicId)
-                .orElseThrow(() ->
-                        new IllegalArgumentException(
-                                "Clinic not found"
-                        )
-                );
+    private Clinic resolveClinic(AppUser currentUser, java.util.UUID requestedClinicId) {
+        return tenantClinicResolver.resolve(currentUser, requestedClinicId, "clinicId is required for platform users");
     }
 
     private String buildName(

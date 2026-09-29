@@ -25,6 +25,8 @@ import org.springframework.data.domain.Pageable;
 @RequiredArgsConstructor
 public class PatientService {
 
+    private final com.dentalclinic.clinic.service.TenantClinicResolver tenantClinicResolver;
+
     private final PatientRepository patientRepository;
     private final PatientMedicalHistoryRepository medicalHistoryRepository;
     private final PatientActivityRepository patientActivityRepository;
@@ -99,27 +101,8 @@ public class PatientService {
         return mapToResponse(patient);
     }
 
-    private Clinic resolveClinic(
-            AppUser currentUser,
-            UUID requestedClinicId
-    ) {
-
-        if (currentUser.getClinic() != null) {
-            return currentUser.getClinic();
-        }
-
-        if (requestedClinicId == null) {
-            throw new IllegalArgumentException(
-                    "clinicId is required for platform users"
-            );
-        }
-
-        return clinicRepository.findById(requestedClinicId)
-                .orElseThrow(() ->
-                        new IllegalArgumentException(
-                                "Clinic not found"
-                        )
-                );
+    private Clinic resolveClinic(AppUser currentUser, java.util.UUID requestedClinicId) {
+        return tenantClinicResolver.resolve(currentUser, requestedClinicId, "clinicId is required for platform users");
     }
 
     private void saveMedicalHistory(
