@@ -19,4 +19,6 @@ public class CaseSheetClinicalFindingResponse {
     private String notes;
 
     private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
+    private long version;
 }

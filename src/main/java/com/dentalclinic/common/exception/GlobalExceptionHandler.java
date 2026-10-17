@@ -23,6 +23,11 @@ public class GlobalExceptionHandler {
 
     private final SecurityErrorHandler securityErrorHandler;
 
+    @ExceptionHandler(com.dentalclinic.casesheet.service.EntryException.class)
+    public ResponseEntity<Map<String,Object>> handleEntry(com.dentalclinic.casesheet.service.EntryException ex){
+        return ResponseEntity.status(ex.status).body(Map.of("status",ex.status,"message",ex.getMessage(),"timestamp",LocalDateTime.now()));
+    }
+
     @ExceptionHandler(AccessDeniedException.class)
     public void handleAccessDenied(AccessDeniedException ex, HttpServletRequest request,
                                    HttpServletResponse response) throws IOException {

@@ -11,9 +11,10 @@ public interface CaseSheetDiagnosisRepository
         extends JpaRepository<CaseSheetDiagnosis, UUID> {
 
     List<CaseSheetDiagnosis>
-    findAllByCaseSheetIdOrderByCreatedAtAsc(
-            UUID caseSheetId
+    findAllByCaseSheetIdAndClinicIdAndRemovedAtIsNullOrderByCreatedAtAsc(
+            UUID caseSheetId, UUID clinicId
     );
 
-    boolean existsByCaseSheetId(UUID caseSheetId);
+    boolean existsByCaseSheetIdAndClinicIdAndRemovedAtIsNull(UUID caseSheetId, UUID clinicId);
+    java.util.Optional<CaseSheetDiagnosis> findByIdAndCaseSheetIdAndClinicId(UUID id, UUID caseSheetId, UUID clinicId);
 }

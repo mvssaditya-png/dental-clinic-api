@@ -11,7 +11,8 @@ public interface CaseSheetClinicalFindingRepository
         extends JpaRepository<CaseSheetClinicalFinding, UUID> {
 
     List<CaseSheetClinicalFinding>
-    findAllByCaseSheetIdOrderByCreatedAtAsc(
-            UUID caseSheetId
+    findAllByCaseSheetIdAndClinicIdAndRemovedAtIsNullOrderByCreatedAtAsc(
+            UUID caseSheetId, UUID clinicId
     );
+    java.util.Optional<CaseSheetClinicalFinding> findByIdAndCaseSheetIdAndClinicId(UUID id, UUID caseSheetId, UUID clinicId);
 }

@@ -80,6 +80,16 @@ public class CaseSheetClinicalFinding {
     @JoinColumn(name = "created_by")
     private AppUser createdBy;
 
+    @Version
+    @Column(nullable = false)
+    private long version;
+    private LocalDateTime updatedAt;
+    @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(name = "updated_by")
+    private AppUser updatedBy;
+    private LocalDateTime removedAt;
+    @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(name = "removed_by")
+    private AppUser removedBy;
+
     @PrePersist
     protected void onCreate() {
 

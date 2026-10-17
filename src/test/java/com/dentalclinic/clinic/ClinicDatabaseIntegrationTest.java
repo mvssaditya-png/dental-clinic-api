@@ -15,7 +15,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @EnabledIfEnvironmentVariable(named="CLINIC_TEST_DATABASE", matches="true")
 class ClinicDatabaseIntegrationTest {
  @Autowired ClinicService service; @Autowired JdbcTemplate jdbc;
- @BeforeEach void guard(){assertTrue(jdbc.queryForObject("select current_database()",String.class).startsWith("dental_clinic_v17_verification_"));SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(AppUser.builder().build(),null,List.of()));}
+ @BeforeEach void guard(){assertTrue(jdbc.queryForObject("select current_database()",String.class).matches("dental_clinic_v(17|18)_verification_.*"));SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(AppUser.builder().build(),null,List.of()));}
  @AfterEach void clear(){SecurityContextHolder.clearContext();}
  CreateClinicRequest request(String name){var r=new CreateClinicRequest();r.setClinicCode("TEST_"+UUID.randomUUID());r.setClinicName(name);return r;}
  @Test void defaultsAndSearchFilteringAndPaginationAndCaseSensitivity(){
@@ -39,7 +39,7 @@ class ClinicDatabaseIntegrationTest {
   assertNotNull(service.updateSettings(c.getId(),r).getId());r.setSettingsJson(Map.of("replacement",2));assertEquals(Set.of("replacement"),service.updateSettings(c.getId(),r).getSettingsJson().keySet());r.setSettingsJson(null);assertNull(service.updateSettings(c.getId(),r).getSettingsJson());
  }
  @Test void migrationHasExactlyFourGlobalSuperAdminGrants(){
-  assertEquals(52,jdbc.queryForObject("select count(*) from permission",Integer.class));
+  assertEquals(53,jdbc.queryForObject("select count(*) from permission",Integer.class));
   String codes="('CLINIC_VIEW','CLINIC_CREATE','CLINIC_EDIT','CLINIC_STATUS_MANAGE')";
   assertEquals(4,jdbc.queryForObject("select count(*) from role_permission rp join permission p on p.id=rp.permission_id where p.permission_code in "+codes,Integer.class));
   assertEquals(4,jdbc.queryForObject("select count(*) from role_permission rp join permission p on p.id=rp.permission_id join role r on r.id=rp.role_id where p.permission_code in "+codes+" and r.role_code='SUPER_ADMIN' and r.clinic_id is null and r.is_system_role=true",Integer.class));

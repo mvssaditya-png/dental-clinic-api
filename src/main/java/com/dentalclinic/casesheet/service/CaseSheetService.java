@@ -38,6 +38,7 @@ public class CaseSheetService {
     private final com.dentalclinic.clinic.service.TenantClinicResolver tenantClinicResolver;
 
     private final CaseSheetRepository caseSheetRepository;
+    private final EntryAudit entryAudit;
     private final ConsultationRepository consultationRepository;
     private final ClinicRepository clinicRepository;
     private final CaseSheetDiagnosisRepository caseSheetDiagnosisRepository;
@@ -356,6 +357,9 @@ public class CaseSheetService {
                         requestedClinicId
                 );
 
+        caseSheetRepository.lockByIdAndClinicId(caseSheetId, clinic.getId())
+                .orElseThrow(() -> new IllegalArgumentException("Case sheet not found"));
+
         CaseSheet caseSheet =
                 caseSheetRepository
                         .findByIdAndClinicIdWithDetails(
@@ -501,6 +505,9 @@ public class CaseSheetService {
                         requestedClinicId
                 );
 
+        caseSheetRepository.lockByIdAndClinicId(caseSheetId, clinic.getId())
+                .orElseThrow(() -> new IllegalArgumentException("Case sheet not found"));
+
         CaseSheet caseSheet =
                 caseSheetRepository
                         .findByIdAndClinicIdWithDetails(
@@ -555,6 +562,7 @@ public class CaseSheetService {
                 caseSheetDiagnosisRepository
                         .save(diagnosis);
 
+        entryAudit.write(clinic,currentUser,"DIAGNOSIS","CREATE",null,EntryAudit.snapshot(diagnosis),null);
         return mapDiagnosisResponse(diagnosis);
     }
 
@@ -586,9 +594,7 @@ public class CaseSheetService {
                         );
 
         return caseSheetDiagnosisRepository
-                .findAllByCaseSheetIdOrderByCreatedAtAsc(
-                        caseSheet.getId()
-                )
+                .findAllByCaseSheetIdAndClinicIdAndRemovedAtIsNullOrderByCreatedAtAsc(caseSheet.getId(), clinic.getId())
                 .stream()
                 .map(this::mapDiagnosisResponse)
                 .toList();
@@ -599,7 +605,7 @@ public class CaseSheetService {
     ) {
 
         return CaseSheetDiagnosisResponse.builder()
-                .id(diagnosis.getId())
+                .id(diagnosis.getId()).version(diagnosis.getVersion()).updatedAt(diagnosis.getUpdatedAt())
                 .caseSheetId(
                         diagnosis
                                 .getCaseSheet()
@@ -641,6 +647,9 @@ public class CaseSheetService {
                         currentUser,
                         requestedClinicId
                 );
+
+        caseSheetRepository.lockByIdAndClinicId(caseSheetId, clinic.getId())
+                .orElseThrow(() -> new IllegalArgumentException("Case sheet not found"));
 
         CaseSheet caseSheet =
                 caseSheetRepository
@@ -693,9 +702,8 @@ public class CaseSheetService {
                 caseSheetClinicalFindingRepository
                         .save(finding);
 
-        return mapClinicalFindingResponse(
-                finding
-        );
+        entryAudit.write(clinic,currentUser,"FINDING","CREATE",null,EntryAudit.snapshot(finding),null);
+        return mapClinicalFindingResponse(finding);
     }
 
     @Transactional(readOnly = true)
@@ -727,9 +735,7 @@ public class CaseSheetService {
                         );
 
         return caseSheetClinicalFindingRepository
-                .findAllByCaseSheetIdOrderByCreatedAtAsc(
-                        caseSheet.getId()
-                )
+                .findAllByCaseSheetIdAndClinicIdAndRemovedAtIsNullOrderByCreatedAtAsc(caseSheet.getId(), clinic.getId())
                 .stream()
                 .map(
                         this::mapClinicalFindingResponse
@@ -743,7 +749,7 @@ public class CaseSheetService {
     ) {
 
         return CaseSheetClinicalFindingResponse
-                .builder()
+                .builder().version(finding.getVersion()).updatedAt(finding.getUpdatedAt())
                 .id(
                         finding.getId()
                 )
@@ -784,6 +790,9 @@ public class CaseSheetService {
                         currentUser,
                         request.getClinicId()
                 );
+
+        caseSheetRepository.lockByIdAndClinicId(caseSheetId, clinic.getId())
+                .orElseThrow(() -> new IllegalArgumentException("Case sheet not found"));
 
         CaseSheet caseSheet =
                 caseSheetRepository
@@ -853,9 +862,7 @@ public class CaseSheetService {
          */
         boolean hasDiagnosis =
                 caseSheetDiagnosisRepository
-                        .existsByCaseSheetId(
-                                caseSheet.getId()
-                        );
+                        .existsByCaseSheetIdAndClinicIdAndRemovedAtIsNull(caseSheet.getId(), clinic.getId());
 
         if (!hasDiagnosis) {
 

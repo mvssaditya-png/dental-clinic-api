@@ -21,4 +21,6 @@ public class CaseSheetDiagnosisResponse {
     private String notes;
 
     private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
+    private long version;
 }

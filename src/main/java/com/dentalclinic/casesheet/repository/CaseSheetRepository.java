@@ -12,6 +12,10 @@ import java.util.UUID;
 public interface CaseSheetRepository
         extends JpaRepository<CaseSheet, UUID> {
 
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("select cs from CaseSheet cs where cs.id=:id and cs.clinic.id=:clinicId")
+    Optional<CaseSheet> lockByIdAndClinicId(@Param("id") UUID id, @Param("clinicId") UUID clinicId);
+
     boolean existsByConsultationId(UUID consultationId);
 
     boolean existsByClinicIdAndCaseSheetNumber(
