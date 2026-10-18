@@ -16,7 +16,7 @@ All paths start with /api/case-sheets/{caseSheetId}; optional clinicId query use
 
 PUT and DELETE require If-Match containing exactly one quoted nonnegative integer version, for example: If-Match: "3". Wildcards, weak validators and lists are rejected. Use the version returned in the existing GET list or POST/PUT response.
 
-DELETE has no body. Require X-Removal-Reason: Entered against the wrong tooth. The value must be nonblank, at most 1000 characters, and contain no control characters; surrounding whitespace is trimmed. It is stored with the REMOVE audit event. Header transport supports plain text; clients must not send line breaks. International text/header encoding must be validated before a future frontend exposes non-ASCII reasons.
+DELETE has no body. Require X-Removal-Reason: Entered against the wrong tooth. The value must be nonblank, at most 1000 characters, and contain no control characters; surrounding whitespace is trimmed. It is stored with the REMOVE audit event. Header transport supports plain text; clients must not send line breaks. For Unicode reasons, use the JSON POST removal endpoints below; the DELETE header contract remains unchanged.
 
 Diagnosis PUT JSON:
 
@@ -86,3 +86,32 @@ New unit, HTTP, PostgreSQL transaction/concurrency and V17-to-V18 migration test
 ## Final validation results
 
 Maven verify completed successfully: 149 tests, 0 failures, 0 errors, 0 skipped. This includes 25 new case-sheet tests (13 unit, 11 database/HTTP, 1 legacy migration) and all existing integration tests. PostgreSQL verification used dental_clinic_v18_verification_20261017. Git diff --check passed. The packaged backend JAR was built. Frontend files and dependencies were not changed.
+
+## Step 10D.3B.1: Unicode-safe JSON removal
+
+Preferred endpoints for removal reasons in any language:
+
+- POST /api/case-sheets/{caseSheetId}/diagnoses/{diagnosisId}/remove?clinicId=...
+- POST /api/case-sheets/{caseSheetId}/findings/{findingId}/remove?clinicId=...
+
+Require CASE_SHEET_EDIT, If-Match: "3", and Content-Type: application/json; charset=utf-8. Body:
+
+    {"reason":"Incorrect tooth number"}
+
+Success: 204 with no response body. The typed RemoveClinicalEntryRequest uses a custom Bean Validation constraint shared with service validation. The submitted reason must contain non-whitespace text, contain at most 1000 Unicode code points (not UTF-16 units or grapheme clusters), and contain no C0/C1 control characters or unpaired surrogates. Unicode space-only strings, including nonbreaking spaces, are rejected. Valid combining marks, Indic joiners, punctuation and supplementary characters are accepted. No trimming or Unicode normalization is applied to JSON reasons: audit history preserves them exactly, including surrounding spaces. The limit counts the entire submitted string.
+
+The existing DELETE routes retain their original header validation and trimming behavior for compatibility. Both transports delegate to the same transactional soft-removal implementation; locking, version checks, scope checks, audit insertion, DRAFT-only restriction and history permission remain unchanged. JSON validation errors return 400; missing If-Match returns 428, stale version 412, non-DRAFT/already-removed 409, inaccessible entries 404, and missing authority 403. Validation can precede version checks when both are invalid.
+
+No migration or dependency change is required. Existing audit description TEXT supports Unicode. No frontend or permission-grant changes.
+
+Files changed for this follow-up:
+- src/main/java/com/dentalclinic/casesheet/controller/CaseSheetEntryController.java
+- src/main/java/com/dentalclinic/casesheet/service/CaseSheetEntryService.java
+- src/main/java/com/dentalclinic/casesheet/dto/RemoveClinicalEntryRequest.java
+- src/main/java/com/dentalclinic/casesheet/validation/ValidRemovalReason.java
+- src/main/java/com/dentalclinic/casesheet/validation/RemovalReasonValidator.java
+- src/test/java/com/dentalclinic/casesheet/RemovalReasonTest.java
+- src/test/java/com/dentalclinic/casesheet/CaseSheetEntryDatabaseTest.java
+- docs/STEP-10D-3B.md
+
+Step 10D.3B.1 validation: Maven verify passed with 161 tests, 0 failures, 0 errors and 0 skipped (12 added tests). PostgreSQL Unicode round-trip, removal rollback, concurrency regressions and DELETE compatibility ran against the isolated verification database. Git diff --check passed. No migrations were added or modified.

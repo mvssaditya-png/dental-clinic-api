@@ -18,6 +18,12 @@ public class CaseSheetEntryController {
  public ResponseEntity<Void> removeDiagnosis(@PathVariable UUID caseSheetId,@PathVariable UUID diagnosisId,@RequestParam(required=false) UUID clinicId,@RequestHeader(value="If-Match",required=false) String version,@RequestHeader(value="X-Removal-Reason",required=false) String reason){service.remove(caseSheetId,diagnosisId,clinicId,version,reason,true);return ResponseEntity.noContent().build();}
  @DeleteMapping("/findings/{findingId}") @PreAuthorize("hasAuthority('CASE_SHEET_EDIT')")
  public ResponseEntity<Void> removeFinding(@PathVariable UUID caseSheetId,@PathVariable UUID findingId,@RequestParam(required=false) UUID clinicId,@RequestHeader(value="If-Match",required=false) String version,@RequestHeader(value="X-Removal-Reason",required=false) String reason){service.remove(caseSheetId,findingId,clinicId,version,reason,false);return ResponseEntity.noContent().build();}
+ @PostMapping(value="/diagnoses/{diagnosisId}/remove",consumes="application/json")
+ @PreAuthorize("hasAuthority('CASE_SHEET_EDIT')")
+ public ResponseEntity<Void> removeDiagnosisJson(@PathVariable UUID caseSheetId,@PathVariable UUID diagnosisId,@RequestParam(required=false) UUID clinicId,@RequestHeader(value="If-Match",required=false) String version,@Valid @RequestBody RemoveClinicalEntryRequest request){service.removeJson(caseSheetId,diagnosisId,clinicId,version,request,true);return ResponseEntity.noContent().build();}
+ @PostMapping(value="/findings/{findingId}/remove",consumes="application/json")
+ @PreAuthorize("hasAuthority('CASE_SHEET_EDIT')")
+ public ResponseEntity<Void> removeFindingJson(@PathVariable UUID caseSheetId,@PathVariable UUID findingId,@RequestParam(required=false) UUID clinicId,@RequestHeader(value="If-Match",required=false) String version,@Valid @RequestBody RemoveClinicalEntryRequest request){service.removeJson(caseSheetId,findingId,clinicId,version,request,false);return ResponseEntity.noContent().build();}
  @GetMapping("/entry-history") @PreAuthorize("hasAuthority('CASE_SHEET_HISTORY_VIEW')")
  public CaseSheetEntryService.HistoryPage history(@PathVariable UUID caseSheetId,@RequestParam(required=false) UUID clinicId,@RequestParam(defaultValue="0") int page,@RequestParam(defaultValue="20") int size){return service.history(caseSheetId,clinicId,page,size);}
 }

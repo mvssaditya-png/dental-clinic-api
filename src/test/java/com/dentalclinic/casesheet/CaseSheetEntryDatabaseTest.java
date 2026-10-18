@@ -69,4 +69,42 @@ class CaseSheetEntryDatabaseTest {
  mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete(path).header("If-Match","\"1\"").header("X-Removal-Reason","Correction")).andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isNoContent());
  mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete(path).header("If-Match","\"1\"").header("X-Removal-Reason","Correction")).andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isConflict());
  }
+
+ private int postRemoval(String path,String match,String body) throws Exception {
+  var mvc=org.springframework.test.web.servlet.setup.MockMvcBuilders.webAppContextSetup(web).build();
+  var request=org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post(path).contentType("application/json; charset=utf-8").content(body.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+  if(match!=null)request.header("If-Match",match);
+  return mvc.perform(request).andReturn().getResponse().getStatus();
+ }
+ private String removalPath(UUID entry,boolean diagnosis){return "/api/case-sheets/"+parent+(diagnosis?"/diagnoses/":"/findings/")+entry+"/remove?clinicId="+clinic;}
+ @Test void unicodeJsonReasonsRoundTripForBothEntryTypes() throws Exception {
+  login("CASE_SHEET_EDIT");
+  for(String reason:List.of("Incorrect tooth number", "\u0c24\u0c2a\u0c4d\u0c2a\u0c41 \u0c2a\u0c28\u0c4d\u0c28\u0c41", "\u0917\u0932\u0924 \u0926\u093e\u0902\u0924", "  e\u0301 \u0915\u094d\u200d\u0937 \ud83d\ude00  ")){
+   var d=diagnosis();assertEquals(204,postRemoval(removalPath(d.getId(),true),"\"0\"","{\"reason\":\""+reason+"\"}"));
+   var r=new CreateCaseSheetClinicalFindingRequest();r.setFindingType("Test");var f=sheets.addClinicalFinding(parent,clinic,r);assertEquals(204,postRemoval(removalPath(f.getId(),false),"\"0\"","{\"reason\":\""+reason+"\"}"));
+   for(UUID id:List.of(d.getId(),f.getId())){assertEquals(reason,jdbc.queryForObject("select description from audit_log where entity_id=? and action='REMOVE'",String.class,id));assertEquals(reason,entries.history(parent,clinic,0,100).content().stream().filter(e->e.entryId().equals(id)&&e.operation().equals("REMOVE")).findFirst().orElseThrow().removalReason());}
+  }
+ }
+ @Test void jsonRemovalReasonValidationAndBoundary() throws Exception {
+  login("CASE_SHEET_EDIT");var d=diagnosis();String path=removalPath(d.getId(),true);
+  for(String body:List.of("{}","{\"reason\":null}","{\"reason\":\" \u00a0\u2003\"}","{\"reason\":\"bad\\nreason\"}","{\"reason\":\""+"\ud83d\ude00".repeat(1001)+"\"}","{\"reason\":\"\\ud800\"}"))assertEquals(400,postRemoval(path,"\"0\"",body));
+  String reason="\ud83d\ude00".repeat(1000);assertEquals(204,postRemoval(path,"\"0\"","{\"reason\":\""+reason+"\"}"));assertEquals(reason,entries.history(parent,clinic,0,20).content().get(0).removalReason());
+ }
+ @Test void jsonRemovalPreconditionsAndAlreadyRemoved() throws Exception {
+  login("CASE_SHEET_EDIT");var d=diagnosis();String path=removalPath(d.getId(),true),body="{\"reason\":\"Correction\"}";
+  assertEquals(428,postRemoval(path,null,body));assertEquals(412,postRemoval(path,"\"1\"",body));assertEquals(204,postRemoval(path,"\"0\"",body));assertEquals(409,postRemoval(path,"\"0\"",body));
+ }
+ @Test void jsonRemovalPermissionAndParentIsolation() throws Exception {
+  var d=diagnosis();String path=removalPath(d.getId(),true),body="{\"reason\":\"Correction\"}";login("CASE_SHEET_VIEW");assertEquals(403,postRemoval(path,"\"0\"",body));login("CASE_SHEET_EDIT");
+  assertEquals(404,postRemoval(path.replace(parent.toString(),UUID.randomUUID().toString()),"\"0\"",body));assertEquals(404,postRemoval(removalPath(UUID.randomUUID(),true),"\"0\"",body));
+  UUID other=UUID.randomUUID();jdbc.update("insert into clinic(id,clinic_code,clinic_name) values (?,?,?)",other,other.toString(),"Other");actor=AppUser.builder().id(user).clinic(Clinic.builder().id(other).active(true).build()).build();login("CASE_SHEET_EDIT");assertEquals(404,postRemoval(path,"\"0\"",body));assertEquals(0,jdbc.queryForObject("select count(*) from case_sheet_diagnosis where id=? and removed_at is not null",Integer.class,d.getId()));
+ }
+ @Test void jsonRemovalRejectsFinalizedAndAmended() throws Exception {
+  login("CASE_SHEET_EDIT");var d=diagnosis();for(String status:List.of("FINALIZED","AMENDED")){jdbc.update("update case_sheet set status=? where id=?",status,parent);assertEquals(409,postRemoval(removalPath(d.getId(),true),"\"0\"","{\"reason\":\"Correction\"}"));}
+ }
+ @Test void unicodeRemovalAuditFailureRollsBack() throws Exception {
+  login("CASE_SHEET_EDIT");var d=diagnosis();jdbc.execute("CREATE FUNCTION reject_unicode_audit_test() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'test audit failure'; END $$");jdbc.execute("CREATE TRIGGER reject_unicode_audit_test BEFORE INSERT ON audit_log FOR EACH ROW EXECUTE FUNCTION reject_unicode_audit_test()");
+  try{assertEquals(500,postRemoval(removalPath(d.getId(),true),"\"0\"","{\"reason\":\"\u0917\u0932\u0924\"}"));assertEquals(1,sheets.getDiagnoses(parent,clinic).size());assertEquals(0,sheets.getDiagnoses(parent,clinic).get(0).getVersion());assertEquals(1,entries.history(parent,clinic,0,20).totalElements());}
+  finally{jdbc.execute("DROP TRIGGER reject_unicode_audit_test ON audit_log");jdbc.execute("DROP FUNCTION reject_unicode_audit_test()");}
+ }
 }

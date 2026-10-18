@@ -36,7 +36,16 @@ public class CaseSheetEntryService {
  }
  @Transactional
  public void remove(UUID parentId,UUID id,UUID clinicId,String match,String removalReason,boolean diagnosis){
- long expected=version(match);String reason=reason(removalReason);var actor=SecurityUtils.getCurrentUser();var parent=parent(parentId,clinicId,actor);LocalDateTime now=LocalDateTime.now();
+ removeValidated(parentId,id,clinicId,version(match),reason(removalReason),diagnosis);
+ }
+ @Transactional
+ public void removeJson(UUID parentId,UUID id,UUID clinicId,String match,RemoveClinicalEntryRequest request,boolean diagnosis){
+ long expected=version(match);
+ if(request==null||!com.dentalclinic.casesheet.validation.RemovalReasonValidator.valid(request.getReason()))throw new EntryException(400,"Invalid removal reason: provide nonblank Unicode text, at most 1000 code points, without control characters");
+ removeValidated(parentId,id,clinicId,expected,request.getReason(),diagnosis);
+ }
+ private void removeValidated(UUID parentId,UUID id,UUID clinicId,long expected,String reason,boolean diagnosis){
+ var actor=SecurityUtils.getCurrentUser();var parent=parent(parentId,clinicId,actor);LocalDateTime now=LocalDateTime.now();
  if(diagnosis){var d=diagnoses.findByIdAndCaseSheetIdAndClinicId(id,parentId,parent.getClinic().getId()).orElseThrow(()->new EntryException(404,"Diagnosis not found"));active(d.getRemovedAt(),d.getVersion(),expected);var before=EntryAudit.snapshot(d);d.setRemovedAt(now);d.setRemovedBy(actor);d.setUpdatedAt(now);d.setUpdatedBy(actor);diagnoses.saveAndFlush(d);audit.write(parent.getClinic(),actor,"DIAGNOSIS","REMOVE",before,EntryAudit.snapshot(d),reason);}
  else{var f=findings.findByIdAndCaseSheetIdAndClinicId(id,parentId,parent.getClinic().getId()).orElseThrow(()->new EntryException(404,"Finding not found"));active(f.getRemovedAt(),f.getVersion(),expected);var before=EntryAudit.snapshot(f);f.setRemovedAt(now);f.setRemovedBy(actor);f.setUpdatedAt(now);f.setUpdatedBy(actor);findings.saveAndFlush(f);audit.write(parent.getClinic(),actor,"FINDING","REMOVE",before,EntryAudit.snapshot(f),reason);}
  }
