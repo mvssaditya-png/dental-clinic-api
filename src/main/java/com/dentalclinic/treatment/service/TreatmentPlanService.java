@@ -37,6 +37,7 @@ public class TreatmentPlanService {
             treatmentPlanStatusHistoryRepository;
 
     private final CaseSheetRepository caseSheetRepository;
+    private final com.dentalclinic.patient.repository.PatientRepository patientRepository;
 
     private final ClinicRepository clinicRepository;
     private final TreatmentPlanItemRepository treatmentPlanItemRepository;
@@ -44,6 +45,34 @@ public class TreatmentPlanService {
     private final ProcedureMasterRepository procedureMasterRepository;
 
     private final ProcedurePriceRepository procedurePriceRepository;
+    @Transactional(readOnly = true)
+    public TreatmentPlanPage discoverByPatient(UUID patientId, UUID requestedClinicId, int page, int size) {
+        var pageable = discoveryPage(page, size);
+        if (patientId == null) throw new IllegalArgumentException("patientId is required");
+        Clinic clinic = resolveClinic(SecurityUtils.getCurrentUser(), requestedClinicId);
+        patientRepository.findByIdAndClinicId(patientId, clinic.getId())
+                .orElseThrow(() -> new IllegalArgumentException("Patient not found"));
+        return TreatmentPlanPage.from(treatmentPlanRepository.discoverByPatient(patientId, clinic.getId(), pageable));
+    }
+
+    @Transactional(readOnly = true)
+    public TreatmentPlanPage discoverByCaseSheet(UUID caseSheetId, UUID requestedClinicId, int page, int size) {
+        var pageable = discoveryPage(page, size);
+        if (caseSheetId == null) throw new IllegalArgumentException("caseSheetId is required");
+        Clinic clinic = resolveClinic(SecurityUtils.getCurrentUser(), requestedClinicId);
+        caseSheetRepository.findByIdAndClinicIdWithDetails(caseSheetId, clinic.getId())
+                .orElseThrow(() -> new IllegalArgumentException("Case sheet not found"));
+        return TreatmentPlanPage.from(treatmentPlanRepository.discoverByCaseSheet(caseSheetId, clinic.getId(), pageable));
+    }
+
+    private org.springframework.data.domain.Pageable discoveryPage(int page, int size) {
+        if (page < 0 || size < 1) throw new IllegalArgumentException("Invalid page or size");
+        int boundedSize = Math.min(size, 100);
+        if ((long) page * boundedSize > Integer.MAX_VALUE)
+            throw new IllegalArgumentException("Page offset is too large");
+        return org.springframework.data.domain.PageRequest.of(page, boundedSize);
+    }
+
     @Transactional
     public TreatmentPlanResponse createTreatmentPlan(
             CreateTreatmentPlanRequest request

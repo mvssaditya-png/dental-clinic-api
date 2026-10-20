@@ -13,6 +13,42 @@ import java.util.UUID;
 public interface TreatmentPlanRepository
         extends JpaRepository<TreatmentPlan, UUID> {
 
+    @Query(value = """
+        SELECT new com.dentalclinic.treatment.dto.TreatmentPlanSummary(
+            tp.id, tp.clinic.id, tp.treatmentPlanNumber, tp.title, p.id, cs.id, con.id,
+            tp.status, tp.estimatedTotalVisits, tp.finalAmount, tp.createdAt, tp.updatedAt)
+        FROM TreatmentPlan tp
+        JOIN tp.patient p
+        LEFT JOIN tp.caseSheet cs
+        LEFT JOIN tp.consultation con
+        WHERE tp.clinic.id = :clinicId AND p.id = :parentId
+        ORDER BY tp.createdAt DESC, tp.id DESC
+        """, countQuery = """
+        SELECT count(tp) FROM TreatmentPlan tp
+        WHERE tp.clinic.id = :clinicId AND tp.patient.id = :parentId
+        """)
+    org.springframework.data.domain.Page<com.dentalclinic.treatment.dto.TreatmentPlanSummary>
+    discoverByPatient(@Param("parentId") UUID parentId, @Param("clinicId") UUID clinicId,
+            org.springframework.data.domain.Pageable pageable);
+
+    @Query(value = """
+        SELECT new com.dentalclinic.treatment.dto.TreatmentPlanSummary(
+            tp.id, tp.clinic.id, tp.treatmentPlanNumber, tp.title, p.id, cs.id, con.id,
+            tp.status, tp.estimatedTotalVisits, tp.finalAmount, tp.createdAt, tp.updatedAt)
+        FROM TreatmentPlan tp
+        JOIN tp.patient p
+        LEFT JOIN tp.caseSheet cs
+        LEFT JOIN tp.consultation con
+        WHERE tp.clinic.id = :clinicId AND cs.id = :parentId
+        ORDER BY tp.createdAt DESC, tp.id DESC
+        """, countQuery = """
+        SELECT count(tp) FROM TreatmentPlan tp
+        WHERE tp.clinic.id = :clinicId AND tp.caseSheet.id = :parentId
+        """)
+    org.springframework.data.domain.Page<com.dentalclinic.treatment.dto.TreatmentPlanSummary>
+    discoverByCaseSheet(@Param("parentId") UUID parentId, @Param("clinicId") UUID clinicId,
+            org.springframework.data.domain.Pageable pageable);
+
     boolean existsByClinicIdAndTreatmentPlanNumber(
             UUID clinicId,
             String treatmentPlanNumber
