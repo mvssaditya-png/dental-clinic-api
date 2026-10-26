@@ -50,4 +50,24 @@ class TreatmentPlanDiscoveryTest {
  @Test void paginationRejectsInvalidAndExcessiveOffset(){for(int[] p:List.of(new int[]{-1,20},new int[]{0,0},new int[]{0,-1},new int[]{Integer.MAX_VALUE,100})){assertThrows(IllegalArgumentException.class,()->service.discoverByPatient(parent,null,p[0],p[1]));assertThrows(IllegalArgumentException.class,()->service.discoverByCaseSheet(parent,null,p[0],p[1]));}verifyNoInteractions(plans,patients,sheets);}
  @Test void maximumSizeIsCapped(){when(patients.findByIdAndClinicId(parent,clinicId)).thenReturn(Optional.of(new Patient()));when(plans.discoverByPatient(parent,clinicId,PageRequest.of(1,100))).thenReturn(Page.empty(PageRequest.of(1,100)));assertEquals(100,service.discoverByPatient(parent,null,1,10000).size());}
  @Test void discoveryQueriesHaveDatabasePaginationStableTiebreakerAndTenantCount() throws Exception {for(String name:List.of("discoverByPatient","discoverByCaseSheet")){var method=TreatmentPlanRepository.class.getMethod(name,UUID.class,UUID.class,Pageable.class);var query=method.getAnnotation(org.springframework.data.jpa.repository.Query.class);assertTrue(query.value().contains("ORDER BY tp.createdAt DESC, tp.id DESC"));assertTrue(query.value().contains("tp.clinic.id = :clinicId"));assertTrue(query.countQuery().contains("tp.clinic.id = :clinicId"));assertTrue(query.countQuery().contains(":parentId"));assertFalse(query.value().contains("FETCH"));}}
+
+ @Test void clinicSearchEscapesWildcardsAndKeepsBoundClinic() {
+  when(plans.discoverByClinic(eq(clinicId),eq("%a!%\\!_!!%"),eq(TreatmentPlanStatus.DRAFT),eq(PageRequest.of(0,100)))).thenReturn(Page.empty(PageRequest.of(0,100)));
+  var result=service.discoverByClinic(UUID.randomUUID(),0,999," A%\\_! ",TreatmentPlanStatus.DRAFT);
+  assertEquals(100,result.size());assertEquals(0,result.totalElements());verifyNoInteractions(clinics);
+ }
+ @Test void clinicBlankSearchAndAllStatuses(){
+  when(plans.discoverByClinic(clinicId,null,null,PageRequest.of(0,20))).thenReturn(Page.empty(PageRequest.of(0,20)));
+  assertTrue(service.discoverByClinic(null,0,20,"   ",null).content().isEmpty());
+ }
+ @Test void clinicSearchLengthAndPaginationRejectedBeforeQuery(){
+  assertThrows(IllegalArgumentException.class,()->service.discoverByClinic(null,0,20,"x".repeat(101),null));
+  assertThrows(IllegalArgumentException.class,()->service.discoverByClinic(null,-1,20,null,null));verifyNoInteractions(plans);
+ }
+ @Test void clinicPlatformContextIsRequiredAndResolved(){
+  login(null);assertThrows(IllegalArgumentException.class,()->service.discoverByClinic(null,0,20,null,null));
+  when(clinics.findById(clinicId)).thenReturn(Optional.of(clinic()));
+  when(plans.discoverByClinic(clinicId,null,null,PageRequest.of(0,20))).thenReturn(Page.empty(PageRequest.of(0,20)));
+  assertEquals(0,service.discoverByClinic(clinicId,0,20,null,null).totalElements());
+ }
 }

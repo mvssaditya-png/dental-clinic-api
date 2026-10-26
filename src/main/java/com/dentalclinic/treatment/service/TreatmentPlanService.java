@@ -46,6 +46,18 @@ public class TreatmentPlanService {
 
     private final ProcedurePriceRepository procedurePriceRepository;
     @Transactional(readOnly = true)
+    public com.dentalclinic.treatment.dto.ClinicTreatmentPlanPage discoverByClinic(UUID requestedClinicId, int page, int size, String search, TreatmentPlanStatus status) {
+        var pageable = discoveryPage(page, size);
+        String normalized = search == null ? "" : search.strip();
+        if (normalized.codePointCount(0, normalized.length()) > 100) throw new IllegalArgumentException("Search must not exceed 100 characters");
+        String pattern = normalized.isEmpty() ? null : "%" + normalized.toLowerCase(java.util.Locale.ROOT)
+            .replace("!", "!!").replace("%", "!%").replace("_", "!_") + "%";
+        Clinic clinic = resolveClinic(SecurityUtils.getCurrentUser(), requestedClinicId);
+        return com.dentalclinic.treatment.dto.ClinicTreatmentPlanPage.from(
+            treatmentPlanRepository.discoverByClinic(clinic.getId(), pattern, status, pageable));
+    }
+
+    @Transactional(readOnly = true)
     public TreatmentPlanPage discoverByPatient(UUID patientId, UUID requestedClinicId, int page, int size) {
         var pageable = discoveryPage(page, size);
         if (patientId == null) throw new IllegalArgumentException("patientId is required");

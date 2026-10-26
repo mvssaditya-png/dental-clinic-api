@@ -14,6 +14,31 @@ public interface TreatmentPlanRepository
         extends JpaRepository<TreatmentPlan, UUID> {
 
     @Query(value = """
+ SELECT new com.dentalclinic.treatment.dto.ClinicTreatmentPlanSummary(
+ tp.id, tp.clinic.id, p.id, trim(concat(concat(p.firstName, ' '), coalesce(p.lastName, ''))),
+ p.patientNumber, tp.treatmentPlanNumber, tp.title, tp.status, cs.id, con.id,
+ tp.estimatedTotalVisits, tp.finalAmount, tp.createdAt, tp.updatedAt)
+ FROM TreatmentPlan tp JOIN tp.patient p
+ LEFT JOIN tp.caseSheet cs LEFT JOIN tp.consultation con
+ WHERE tp.clinic.id = :clinicId AND p.clinic.id = :clinicId
+ AND (:status IS NULL OR tp.status = :status)
+ AND (:pattern IS NULL OR lower(concat(concat(p.firstName, ' '), coalesce(p.lastName, ''))) LIKE :pattern ESCAPE '!'
+ OR lower(p.patientNumber) LIKE :pattern ESCAPE '!'
+ OR lower(tp.treatmentPlanNumber) LIKE :pattern ESCAPE '!')
+ ORDER BY tp.createdAt DESC, tp.id DESC
+ """, countQuery = """
+ SELECT count(tp) FROM TreatmentPlan tp JOIN tp.patient p
+ WHERE tp.clinic.id = :clinicId AND p.clinic.id = :clinicId
+ AND (:status IS NULL OR tp.status = :status)
+ AND (:pattern IS NULL OR lower(concat(concat(p.firstName, ' '), coalesce(p.lastName, ''))) LIKE :pattern ESCAPE '!'
+ OR lower(p.patientNumber) LIKE :pattern ESCAPE '!'
+ OR lower(tp.treatmentPlanNumber) LIKE :pattern ESCAPE '!')
+ """)
+ org.springframework.data.domain.Page<com.dentalclinic.treatment.dto.ClinicTreatmentPlanSummary> discoverByClinic(
+ @Param("clinicId") UUID clinicId, @Param("pattern") String pattern,
+ @Param("status") TreatmentPlanStatus status, org.springframework.data.domain.Pageable pageable);
+
+    @Query(value = """
         SELECT new com.dentalclinic.treatment.dto.TreatmentPlanSummary(
             tp.id, tp.clinic.id, tp.treatmentPlanNumber, tp.title, p.id, cs.id, con.id,
             tp.status, tp.estimatedTotalVisits, tp.finalAmount, tp.createdAt, tp.updatedAt)

@@ -50,4 +50,15 @@ class TreatmentPlanDiscoveryControllerTest {
  }
  @Test void malformedIdsAndPaginationAreBadRequests() throws Exception {login("TREATMENT_PLAN_VIEW");for(String parent:List.of("patients","case-sheets")){mvc.perform(get("/api/"+parent+"/invalid/treatment-plans")).andExpect(status().isBadRequest());mvc.perform(get("/api/"+parent+"/"+id+"/treatment-plans").param("clinicId","invalid")).andExpect(status().isBadRequest());mvc.perform(get("/api/"+parent+"/"+id+"/treatment-plans").param("page","invalid")).andExpect(status().isBadRequest());mvc.perform(get("/api/"+parent+"//treatment-plans")).andExpect(status().isNotFound());}verifyNoInteractions(service);}
  @Test void existingDetailAndItemsRemainRoutedAndPermissionProtected() throws Exception {login("TREATMENT_PLAN_VIEW");when(service.getTreatmentPlan(id,clinic)).thenReturn(TreatmentPlanResponse.builder().id(id).clinicId(clinic).notes("Existing detail remains unchanged").build());when(service.getTreatmentPlanItems(id,clinic)).thenReturn(List.of());mvc.perform(get("/api/treatment-plans/"+id).param("clinicId",clinic.toString())).andExpect(status().isOk()).andExpect(jsonPath("notes").value("Existing detail remains unchanged"));mvc.perform(get("/api/treatment-plans/"+id+"/items").param("clinicId",clinic.toString())).andExpect(status().isOk()).andExpect(content().json("[]"));login("ROLE_SUPER_ADMIN");assertThrows(AccessDeniedException.class,()->context.getBean(TreatmentPlanController.class).getTreatmentPlan(id,clinic));}
+
+ @Test void clinicEndpointDefaultsPermissionAndStatus() throws Exception {
+  login("ROLE_SUPER_ADMIN");assertThrows(AccessDeniedException.class,()->controller.byClinic(clinic,0,20,null,null));verifyNoInteractions(service);
+  login("TREATMENT_PLAN_VIEW");when(service.discoverByClinic(null,0,20,null,null)).thenReturn(new ClinicTreatmentPlanPage(List.of(),0,20,0,0));
+  mvc.perform(get("/api/treatment-plans")).andExpect(status().isOk()).andExpect(jsonPath("totalElements").value(0));
+  for(var value:com.dentalclinic.treatment.entity.TreatmentPlanStatus.values()) {
+   mvc.perform(get("/api/treatment-plans").param("status",value.name())).andExpect(status().isOk());
+   verify(service).discoverByClinic(null,0,20,null,value);
+  }
+  mvc.perform(get("/api/treatment-plans").param("status","INVALID")).andExpect(status().isBadRequest());
+ }
 }

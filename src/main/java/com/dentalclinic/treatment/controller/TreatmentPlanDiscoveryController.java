@@ -19,6 +19,17 @@ public class TreatmentPlanDiscoveryController {
         return java.util.Map.of("status", 400, "message", "Invalid discovery request parameter");
     }
 
+    @GetMapping("/treatment-plans")
+    @PreAuthorize("hasAuthority('TREATMENT_PLAN_VIEW')")
+    public com.dentalclinic.treatment.dto.ClinicTreatmentPlanPage byClinic(
+            @RequestParam(required = false) UUID clinicId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) com.dentalclinic.treatment.entity.TreatmentPlanStatus status) {
+        return service.discoverByClinic(clinicId, page, size, search, status);
+    }
+
     @GetMapping("/patients/{patientId}/treatment-plans")
     @PreAuthorize("hasAuthority('TREATMENT_PLAN_VIEW')")
     public TreatmentPlanPage byPatient(@PathVariable UUID patientId,

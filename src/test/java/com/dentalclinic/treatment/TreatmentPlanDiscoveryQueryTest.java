@@ -24,6 +24,13 @@ class TreatmentPlanDiscoveryQueryTest {
    scanner.addIncludeFilter(new AnnotationTypeFilter(jakarta.persistence.Entity.class));
    for(var bean:scanner.findCandidateComponents("com.dentalclinic"))sources.addAnnotatedClass(Class.forName(bean.getBeanClassName()));
    try(var factory=sources.buildMetadata().buildSessionFactory();var session=factory.openSession()){
+    var clinicQuery=TreatmentPlanRepository.class.getMethod("discoverByClinic",UUID.class,String.class,com.dentalclinic.treatment.entity.TreatmentPlanStatus.class,Pageable.class).getAnnotation(org.springframework.data.jpa.repository.Query.class);
+    assertNotNull(session.createQuery(clinicQuery.value(),com.dentalclinic.treatment.dto.ClinicTreatmentPlanSummary.class));
+    assertNotNull(session.createQuery(clinicQuery.countQuery(),Long.class));
+    for(String text:java.util.List.of("tp.clinic.id = :clinicId","p.clinic.id = :clinicId","p.patientNumber","p.firstName","p.lastName","tp.treatmentPlanNumber","ESCAPE '!'",":status")) {
+     assertTrue(clinicQuery.value().contains(text));assertTrue(clinicQuery.countQuery().contains(text));
+    }
+    assertTrue(clinicQuery.value().contains("LEFT JOIN tp.caseSheet"));assertTrue(clinicQuery.value().contains("LEFT JOIN tp.consultation"));assertTrue(clinicQuery.value().contains("ORDER BY tp.createdAt DESC, tp.id DESC"));assertFalse(clinicQuery.value().contains("FETCH"));
     for(String name:java.util.List.of("discoverByPatient","discoverByCaseSheet")){
      var annotation=TreatmentPlanRepository.class.getMethod(name,UUID.class,UUID.class,Pageable.class).getAnnotation(org.springframework.data.jpa.repository.Query.class);
      var query=session.createQuery(annotation.value(),TreatmentPlanSummary.class);
