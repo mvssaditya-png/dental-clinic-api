@@ -20,6 +20,14 @@ import java.util.UUID;
 @Builder
 public class TreatmentPlanItem {
 
+    @Version
+    @Column(nullable = false)
+    private long version;
+    private LocalDateTime removedAt;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "removed_by")
+    private AppUser removedBy;
+
     @Id
     @GeneratedValue
     @Column(columnDefinition = "uuid")

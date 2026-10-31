@@ -19,9 +19,9 @@ public interface TreatmentPlanItemRepository
         JOIN FETCH i.procedure p
         LEFT JOIN FETCH i.condition c
         LEFT JOIN FETCH i.odontogramTooth ot
-        WHERE i.treatmentPlan.id = :treatmentPlanId
+        WHERE i.treatmentPlan.id = :treatmentPlanId AND i.removedAt IS NULL
         ORDER BY i.sequenceNumber ASC,
-                 i.createdAt ASC
+                 i.createdAt ASC, i.id ASC
     """)
     List<TreatmentPlanItem>
     findAllByTreatmentPlanIdWithDetails(
@@ -47,12 +47,14 @@ public interface TreatmentPlanItemRepository
             UUID clinicId
     );
 
+    @Query("select count(i) from TreatmentPlanItem i where i.treatmentPlan.id=:treatmentPlanId and i.removedAt is null")
     long countByTreatmentPlanId(
             UUID treatmentPlanId
     );
 
+    @Query("select count(i) from TreatmentPlanItem i where i.treatmentPlan.id=:treatmentPlanId and i.removedAt is null and i.status not in :statuses")
     long countByTreatmentPlanIdAndStatusNotIn(
             UUID treatmentPlanId,
-            java.util.Collection<TreatmentPlanItemStatus> statuses
+            @Param("statuses") java.util.Collection<TreatmentPlanItemStatus> statuses
     );
 }

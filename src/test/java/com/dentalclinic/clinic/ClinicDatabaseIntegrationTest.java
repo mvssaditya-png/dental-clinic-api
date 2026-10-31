@@ -39,7 +39,7 @@ class ClinicDatabaseIntegrationTest {
   assertNotNull(service.updateSettings(c.getId(),r).getId());r.setSettingsJson(Map.of("replacement",2));assertEquals(Set.of("replacement"),service.updateSettings(c.getId(),r).getSettingsJson().keySet());r.setSettingsJson(null);assertNull(service.updateSettings(c.getId(),r).getSettingsJson());
  }
  @Test void migrationHasExactlyFourGlobalSuperAdminGrants(){
-  assertEquals(53,jdbc.queryForObject("select count(*) from permission",Integer.class));
+  assertEquals(54,jdbc.queryForObject("select count(*) from permission",Integer.class));
   String codes="('CLINIC_VIEW','CLINIC_CREATE','CLINIC_EDIT','CLINIC_STATUS_MANAGE')";
   assertEquals(4,jdbc.queryForObject("select count(*) from role_permission rp join permission p on p.id=rp.permission_id where p.permission_code in "+codes,Integer.class));
   assertEquals(4,jdbc.queryForObject("select count(*) from role_permission rp join permission p on p.id=rp.permission_id join role r on r.id=rp.role_id where p.permission_code in "+codes+" and r.role_code='SUPER_ADMIN' and r.clinic_id is null and r.is_system_role=true",Integer.class));

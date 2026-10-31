@@ -13,6 +13,10 @@ import java.util.UUID;
 public interface TreatmentPlanRepository
         extends JpaRepository<TreatmentPlan, UUID> {
 
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("select p from TreatmentPlan p where p.id=:id and p.clinic.id=:clinicId")
+    Optional<TreatmentPlan> lockByIdAndClinicId(@Param("id") UUID id,@Param("clinicId") UUID clinicId);
+
     @Query(value = """
  SELECT new com.dentalclinic.treatment.dto.ClinicTreatmentPlanSummary(
  tp.id, tp.clinic.id, p.id, trim(concat(concat(p.firstName, ' '), coalesce(p.lastName, ''))),

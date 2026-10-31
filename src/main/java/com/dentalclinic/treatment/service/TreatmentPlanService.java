@@ -45,6 +45,7 @@ public class TreatmentPlanService {
     private final ProcedureMasterRepository procedureMasterRepository;
 
     private final ProcedurePriceRepository procedurePriceRepository;
+    private final TreatmentItemAudit itemAudit;
     @Transactional(readOnly = true)
     public com.dentalclinic.treatment.dto.ClinicTreatmentPlanPage discoverByClinic(UUID requestedClinicId, int page, int size, String search, TreatmentPlanStatus status) {
         var pageable = discoveryPage(page, size);
@@ -568,7 +569,7 @@ public class TreatmentPlanService {
 
         TreatmentPlan treatmentPlan =
                 treatmentPlanRepository
-                        .findByIdAndClinicIdWithDetails(
+                        .lockByIdAndClinicId(
                                 treatmentPlanId,
                                 clinic.getId()
                         )
@@ -784,10 +785,11 @@ public class TreatmentPlanService {
                         .build();
 
         item =
-                treatmentPlanItemRepository.save(
+                treatmentPlanItemRepository.saveAndFlush(
                         item
                 );
 
+        itemAudit.write(item,currentUser,"CREATE",null,null);
         recalculateTreatmentPlan(
                 treatmentPlan,
                 currentUser
@@ -833,7 +835,7 @@ public class TreatmentPlanService {
                 .toList();
     }
 
-    private void recalculateTreatmentPlan(
+    void recalculateTreatmentPlan(
             TreatmentPlan treatmentPlan,
             AppUser currentUser
     ) {
@@ -938,11 +940,11 @@ public class TreatmentPlanService {
         );
     }
 
-    private TreatmentPlanItemResponse mapItemResponse(
+    TreatmentPlanItemResponse mapItemResponse(
             TreatmentPlanItem item
     ) {
 
-        return TreatmentPlanItemResponse.builder()
+        return TreatmentPlanItemResponse.builder().version(item.getVersion())
 
                 .id(
                         item.getId()
@@ -1070,7 +1072,7 @@ public class TreatmentPlanService {
 
         TreatmentPlan treatmentPlan =
                 treatmentPlanRepository
-                        .findByIdAndClinicIdWithDetails(
+                        .lockByIdAndClinicId(
                                 treatmentPlanId,
                                 clinic.getId()
                         )
@@ -1202,7 +1204,7 @@ public class TreatmentPlanService {
 
         TreatmentPlan treatmentPlan =
                 treatmentPlanRepository
-                        .findByIdAndClinicIdWithDetails(
+                        .lockByIdAndClinicId(
                                 treatmentPlanId,
                                 clinic.getId()
                         )
@@ -1535,7 +1537,7 @@ public class TreatmentPlanService {
 
         TreatmentPlan treatmentPlan =
                 treatmentPlanRepository
-                        .findByIdAndClinicIdWithDetails(
+                        .lockByIdAndClinicId(
                                 treatmentPlanId,
                                 clinic.getId()
                         )
@@ -1584,6 +1586,8 @@ public class TreatmentPlanService {
             );
         }
 
+        if(item.getRemovedAt()!=null)throw new IllegalArgumentException("Treatment plan item has been removed");
+        var auditBefore=TreatmentItemAudit.snapshot(item);
         TreatmentPlanItemStatus currentStatus =
                 item.getStatus();
 
@@ -1668,7 +1672,7 @@ public class TreatmentPlanService {
         );
 
         item =
-                treatmentPlanItemRepository.save(
+                treatmentPlanItemRepository.saveAndFlush(
                         item
                 );
 
@@ -1740,6 +1744,7 @@ public class TreatmentPlanService {
             );
         }
 
+        itemAudit.write(item,currentUser,"STATUS",auditBefore,null);
         return mapItemResponse(
                 item
         );

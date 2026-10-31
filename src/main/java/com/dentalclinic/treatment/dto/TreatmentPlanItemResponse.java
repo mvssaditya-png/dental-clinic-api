@@ -14,6 +14,7 @@ import java.util.UUID;
 public class TreatmentPlanItemResponse {
 
     private UUID id;
+    private long version;
 
     private UUID treatmentPlanId;
 
