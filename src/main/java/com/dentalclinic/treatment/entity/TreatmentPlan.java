@@ -36,6 +36,22 @@ public class TreatmentPlan {
     @Column(columnDefinition = "uuid")
     private UUID id;
 
+    // Aggregate revision is advanced explicitly under the clinic-scoped parent write lock.
+    // Child-only changes do not trigger JPA parent versioning automatically.
+    @Column(nullable = false)
+    private long version;
+
+    @Column(name = "removed_at")
+    private LocalDateTime removedAt;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "removed_by")
+    private AppUser removedBy;
+
+    public void advanceVersion() {
+        version = Math.incrementExact(version);
+    }
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "clinic_id", nullable = false)
     private Clinic clinic;

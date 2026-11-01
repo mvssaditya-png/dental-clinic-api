@@ -13,6 +13,8 @@ import java.util.UUID;
 public interface TreatmentPlanItemRepository
         extends JpaRepository<TreatmentPlanItem, UUID> {
 
+    List<TreatmentPlanItem> findAllByTreatmentPlanIdAndClinicIdOrderById(UUID treatmentPlanId, UUID clinicId);
+
     @Query("""
         SELECT i
         FROM TreatmentPlanItem i

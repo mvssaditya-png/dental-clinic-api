@@ -66,7 +66,7 @@ public class InvoiceService {
 
         TreatmentPlan treatmentPlan =
                 treatmentPlanRepository
-                        .findByIdAndClinicIdWithDetails(
+                        .lockByIdAndClinicId(
                                 request.getTreatmentPlanId(),
                                 clinic.getId()
                         )
@@ -75,6 +75,8 @@ public class InvoiceService {
                                         "Treatment plan not found"
                                 )
                         );
+
+        com.dentalclinic.treatment.service.TreatmentPlanRemovalService.requireActive(treatmentPlan);
 
         /*
          * Only patient-approved / active / completed

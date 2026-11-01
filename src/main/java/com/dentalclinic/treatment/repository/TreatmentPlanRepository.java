@@ -13,6 +13,11 @@ import java.util.UUID;
 public interface TreatmentPlanRepository
         extends JpaRepository<TreatmentPlan, UUID> {
 
+    // Explicit active/removed reads; unfiltered identity lookup is reserved for recovery/history.
+    Optional<TreatmentPlan> findByIdAndClinicIdAndRemovedAtIsNull(UUID id, UUID clinicId);
+    Optional<TreatmentPlan> findByIdAndClinicIdAndRemovedAtIsNotNull(UUID id, UUID clinicId);
+    Optional<TreatmentPlan> findByIdAndClinicId(UUID id, UUID clinicId);
+
     @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
     @Query("select p from TreatmentPlan p where p.id=:id and p.clinic.id=:clinicId")
     Optional<TreatmentPlan> lockByIdAndClinicId(@Param("id") UUID id,@Param("clinicId") UUID clinicId);
@@ -24,7 +29,7 @@ public interface TreatmentPlanRepository
  tp.estimatedTotalVisits, tp.finalAmount, tp.createdAt, tp.updatedAt)
  FROM TreatmentPlan tp JOIN tp.patient p
  LEFT JOIN tp.caseSheet cs LEFT JOIN tp.consultation con
- WHERE tp.clinic.id = :clinicId AND p.clinic.id = :clinicId
+ WHERE tp.removedAt IS NULL AND tp.clinic.id = :clinicId AND p.clinic.id = :clinicId
  AND (:status IS NULL OR tp.status = :status)
  AND (:pattern IS NULL OR lower(concat(concat(p.firstName, ' '), coalesce(p.lastName, ''))) LIKE :pattern ESCAPE '!'
  OR lower(p.patientNumber) LIKE :pattern ESCAPE '!'
@@ -32,7 +37,7 @@ public interface TreatmentPlanRepository
  ORDER BY tp.createdAt DESC, tp.id DESC
  """, countQuery = """
  SELECT count(tp) FROM TreatmentPlan tp JOIN tp.patient p
- WHERE tp.clinic.id = :clinicId AND p.clinic.id = :clinicId
+ WHERE tp.removedAt IS NULL AND tp.clinic.id = :clinicId AND p.clinic.id = :clinicId
  AND (:status IS NULL OR tp.status = :status)
  AND (:pattern IS NULL OR lower(concat(concat(p.firstName, ' '), coalesce(p.lastName, ''))) LIKE :pattern ESCAPE '!'
  OR lower(p.patientNumber) LIKE :pattern ESCAPE '!'
@@ -50,11 +55,11 @@ public interface TreatmentPlanRepository
         JOIN tp.patient p
         LEFT JOIN tp.caseSheet cs
         LEFT JOIN tp.consultation con
-        WHERE tp.clinic.id = :clinicId AND p.id = :parentId
+        WHERE tp.removedAt IS NULL AND tp.clinic.id = :clinicId AND p.id = :parentId
         ORDER BY tp.createdAt DESC, tp.id DESC
         """, countQuery = """
         SELECT count(tp) FROM TreatmentPlan tp
-        WHERE tp.clinic.id = :clinicId AND tp.patient.id = :parentId
+        WHERE tp.removedAt IS NULL AND tp.clinic.id = :clinicId AND tp.patient.id = :parentId
         """)
     org.springframework.data.domain.Page<com.dentalclinic.treatment.dto.TreatmentPlanSummary>
     discoverByPatient(@Param("parentId") UUID parentId, @Param("clinicId") UUID clinicId,
@@ -68,11 +73,11 @@ public interface TreatmentPlanRepository
         JOIN tp.patient p
         LEFT JOIN tp.caseSheet cs
         LEFT JOIN tp.consultation con
-        WHERE tp.clinic.id = :clinicId AND cs.id = :parentId
+        WHERE tp.removedAt IS NULL AND tp.clinic.id = :clinicId AND cs.id = :parentId
         ORDER BY tp.createdAt DESC, tp.id DESC
         """, countQuery = """
         SELECT count(tp) FROM TreatmentPlan tp
-        WHERE tp.clinic.id = :clinicId AND tp.caseSheet.id = :parentId
+        WHERE tp.removedAt IS NULL AND tp.clinic.id = :clinicId AND tp.caseSheet.id = :parentId
         """)
     org.springframework.data.domain.Page<com.dentalclinic.treatment.dto.TreatmentPlanSummary>
     discoverByCaseSheet(@Param("parentId") UUID parentId, @Param("clinicId") UUID clinicId,
@@ -96,7 +101,7 @@ public interface TreatmentPlanRepository
         LEFT JOIN FETCH tp.consultation con
         LEFT JOIN FETCH tp.caseSheet cs
         WHERE tp.id = :treatmentPlanId
-          AND c.id = :clinicId
+          AND c.id = :clinicId AND tp.removedAt IS NULL
     """)
     Optional<TreatmentPlan> findByIdAndClinicIdWithDetails(
             @Param("treatmentPlanId")
@@ -116,7 +121,7 @@ public interface TreatmentPlanRepository
         LEFT JOIN FETCH tp.consultation con
         LEFT JOIN FETCH tp.caseSheet cs
         WHERE p.id = :patientId
-          AND c.id = :clinicId
+          AND c.id = :clinicId AND tp.removedAt IS NULL
         ORDER BY tp.createdAt DESC
     """)
     List<TreatmentPlan>
@@ -138,7 +143,7 @@ public interface TreatmentPlanRepository
         LEFT JOIN FETCH tp.consultation con
         LEFT JOIN FETCH tp.caseSheet cs
         WHERE cs.id = :caseSheetId
-          AND c.id = :clinicId
+          AND c.id = :clinicId AND tp.removedAt IS NULL
         ORDER BY tp.createdAt DESC
     """)
     List<TreatmentPlan>

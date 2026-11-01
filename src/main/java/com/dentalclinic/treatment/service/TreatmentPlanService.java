@@ -262,7 +262,7 @@ public class TreatmentPlanService {
                                 clinic.getId()
                         )
                         .orElseThrow(() ->
-                                new IllegalArgumentException(
+                                new com.dentalclinic.treatment.service.TreatmentItemException(404,
                                         "Treatment plan not found"
                                 )
                         );
@@ -333,7 +333,7 @@ public class TreatmentPlanService {
                                 .getLastName()
                 );
 
-        return TreatmentPlanResponse.builder()
+        return TreatmentPlanResponse.builder().version(treatmentPlan.getVersion())
 
                 .id(
                         treatmentPlan.getId()
@@ -579,6 +579,8 @@ public class TreatmentPlanService {
                                 )
                         );
 
+        TreatmentPlanRemovalService.requireActive(treatmentPlan);
+
         if (treatmentPlan.getStatus()
                 != TreatmentPlanStatus.DRAFT) {
 
@@ -821,7 +823,7 @@ public class TreatmentPlanService {
                         clinic.getId()
                 )
                 .orElseThrow(() ->
-                        new IllegalArgumentException(
+                        new com.dentalclinic.treatment.service.TreatmentItemException(404,
                                 "Treatment plan not found"
                         )
                 );
@@ -935,6 +937,8 @@ public class TreatmentPlanService {
                 currentUser
         );
 
+        // Every caller holds the parent lock. Also advances for zero-price and text-only changes.
+        treatmentPlan.advanceVersion();
         treatmentPlanRepository.save(
                 treatmentPlan
         );
@@ -1082,6 +1086,8 @@ public class TreatmentPlanService {
                                 )
                         );
 
+        TreatmentPlanRemovalService.requireActive(treatmentPlan);
+
         if (treatmentPlan.getStatus()
                 != TreatmentPlanStatus.DRAFT) {
 
@@ -1213,6 +1219,8 @@ public class TreatmentPlanService {
                                         "Treatment plan not found"
                                 )
                         );
+
+        TreatmentPlanRemovalService.requireActive(treatmentPlan);
 
         TreatmentPlanStatus currentStatus =
                 treatmentPlan.getStatus();
@@ -1378,6 +1386,8 @@ public class TreatmentPlanService {
         treatmentPlan.setStatus(
                 newStatus
         );
+
+        treatmentPlan.advanceVersion();
 
         treatmentPlan.setUpdatedBy(
                 currentUser
@@ -1546,6 +1556,8 @@ public class TreatmentPlanService {
                                         "Treatment plan not found"
                                 )
                         );
+
+        TreatmentPlanRemovalService.requireActive(treatmentPlan);
 
         if (treatmentPlan.getStatus()
                 != TreatmentPlanStatus.APPROVED
@@ -1742,6 +1754,13 @@ public class TreatmentPlanService {
                     treatmentPlan,
                     currentUser
             );
+        }
+
+        if (newStatus != TreatmentPlanItemStatus.CANCELLED) {
+            // Cancellation advances through recalculation above; other transitions must do so explicitly.
+            treatmentPlan.advanceVersion();
+            treatmentPlan.setUpdatedBy(currentUser);
+            treatmentPlanRepository.save(treatmentPlan);
         }
 
         itemAudit.write(item,currentUser,"STATUS",auditBefore,null);
