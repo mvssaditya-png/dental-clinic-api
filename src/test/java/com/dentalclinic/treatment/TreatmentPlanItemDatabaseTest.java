@@ -172,4 +172,63 @@ class TreatmentPlanItemDatabaseTest {
  @Test void concurrentPresentationThenEdit() throws Exception {var p=plan();var i=item(p.getId());var r=new UpdateTreatmentPlanStatusRequest();r.setClinicId(clinic);r.setStatus(TreatmentPlanStatus.PRESENTED);race(()->plans.updateTreatmentPlanStatus(p.getId(),r),()->entries.update(p.getId(),i.getId(),clinic,"\"0\"",update()),409);}
  @Test void concurrentRemoveThenEdit() throws Exception {var p=plan();var i=item(p.getId());race(()->entries.remove(p.getId(),i.getId(),clinic,"\"0\"",reason("Correction")),()->entries.update(p.getId(),i.getId(),clinic,"\"0\"",update()),409);}
  @Test void concurrentDiscountAndEdit() throws Exception {var p=plan();var i=item(p.getId());var r=new UpdateTreatmentPlanRequest();r.setClinicId(clinic);r.setDiscountType(DiscountType.PERCENTAGE);r.setDiscountValue(new BigDecimal("10"));race(()->plans.updateTreatmentPlan(p.getId(),r),()->entries.update(p.getId(),i.getId(),clinic,"\"0\"",update()),0);assertEquals(new BigDecimal("33.34"),plans.getTreatmentPlan(p.getId(),clinic).getFinalAmount());}
+ @Autowired TreatmentPlanLifecycleController lifecycle;
+ void transition(UUID id,TreatmentPlanStatus status){var r=new UpdateTreatmentPlanStatusRequest();r.setClinicId(clinic);r.setStatus(status);r.setApprovalNotes("Private notes");r.setDeclineReason("Declined reason");r.setCancellationReason("Cancelled reason");plans.updateTreatmentPlanStatus(id,r);}
+ @Test void lifecycleEventsAndActor(){
+  var p=plan();var i=item(p.getId());login("TREATMENT_PLAN_HISTORY_VIEW");
+  assertNull(lifecycle.history(p.getId(),clinic,0,20).content().get(0).fromStatus());
+  transition(p.getId(),TreatmentPlanStatus.PRESENTED);transition(p.getId(),TreatmentPlanStatus.APPROVED);
+  for(var status:List.of(TreatmentPlanItemStatus.IN_PROGRESS,TreatmentPlanItemStatus.COMPLETED)){var r=new UpdateTreatmentPlanItemStatusRequest();r.setClinicId(clinic);r.setStatus(status);plans.updateTreatmentPlanItemStatus(p.getId(),i.getId(),r);}
+  transition(p.getId(),TreatmentPlanStatus.COMPLETED);
+  var events=lifecycle.history(p.getId(),clinic,0,20).content();
+  assertEquals(List.of(TreatmentPlanStatus.COMPLETED,TreatmentPlanStatus.IN_PROGRESS,TreatmentPlanStatus.APPROVED,TreatmentPlanStatus.PRESENTED,TreatmentPlanStatus.DRAFT),events.stream().map(e->e.toStatus()).toList());
+  assertEquals("Treatment started",events.get(1).reason());assertEquals("Treatment plan approved",events.get(2).reason());assertEquals("Treatment plan created",events.get(4).reason());
+  assertTrue(events.stream().allMatch(e->e.actorId().equals(user)&&e.clinicId().equals(clinic)&&e.treatmentPlanId().equals(p.getId())));
+  jdbc.update("update app_user set first_name='Renamed',last_name='Actor',clinic_id=null where id=?",user);
+  assertEquals("Renamed Actor",lifecycle.history(p.getId(),clinic,0,20).content().get(0).actorName());
+ }
+ @Test void lifecycleDeclineCancelAndRollback(){
+  var p=plan();item(p.getId());transition(p.getId(),TreatmentPlanStatus.PRESENTED);transition(p.getId(),TreatmentPlanStatus.DECLINED);
+  login("TREATMENT_PLAN_HISTORY_VIEW");assertEquals("Declined reason",lifecycle.history(p.getId(),clinic,0,20).content().get(0).reason());
+  var q=plan();var r=new UpdateTreatmentPlanStatusRequest();r.setClinicId(clinic);r.setStatus(TreatmentPlanStatus.CANCELLED);r.setReason("Explicit");r.setCancellationReason("Required");plans.updateTreatmentPlanStatus(q.getId(),r);
+  assertEquals("Explicit",lifecycle.history(q.getId(),clinic,0,20).content().get(0).reason());
+  var draft=plan();new TransactionTemplate(transactions).execute(s->{transition(draft.getId(),TreatmentPlanStatus.CANCELLED);s.setRollbackOnly();return null;});
+  assertEquals(1,lifecycle.history(draft.getId(),clinic,0,20).totalElements());assertEquals(TreatmentPlanStatus.DRAFT,plans.getTreatmentPlan(draft.getId(),clinic).getStatus());
+ }
+ @Test void lifecycleRemovedEmptyOrderingAndIsolation(){
+  var p=plan();item(p.getId());transition(p.getId(),TreatmentPlanStatus.PRESENTED);transition(p.getId(),TreatmentPlanStatus.APPROVED);login("TREATMENT_PLAN_HISTORY_VIEW");
+  jdbc.update("update treatment_plan_status_history set changed_at='2026-01-01 00:00:00' where treatment_plan_id=?",p.getId());
+  var expected=jdbc.queryForList("select id from treatment_plan_status_history where treatment_plan_id=? order by changed_at desc,id desc",UUID.class,p.getId());
+  for(int n=0;n<3;n++){var page=lifecycle.history(p.getId(),clinic,n,1);assertEquals(3,page.totalElements());assertEquals(expected.get(n),page.content().get(0).id());}
+  var removed=plan();removePlan(removed.getId());assertEquals(1,lifecycle.history(removed.getId(),clinic,0,20).totalElements());
+  var empty=plan();jdbc.update("delete from treatment_plan_status_history where treatment_plan_id=?",empty.getId());assertTrue(lifecycle.history(empty.getId(),clinic,0,20).content().isEmpty());
+  UUID other=UUID.randomUUID();jdbc.update("insert into clinic(id,clinic_code,clinic_name) values (?,?,?)",other,other.toString(),"Other");
+  jdbc.update("insert into treatment_plan_status_history(clinic_id,treatment_plan_id,to_status,changed_by) values (?,?,'DRAFT',?)",other,p.getId(),user);
+  assertEquals(3,lifecycle.history(p.getId(),clinic,0,20).totalElements());
+  actor=AppUser.builder().id(user).clinic(Clinic.builder().id(other).active(true).build()).build();login("TREATMENT_PLAN_HISTORY_VIEW");
+  assertEquals(404,assertThrows(TreatmentItemException.class,()->lifecycle.history(p.getId(),clinic,0,20)).status);
+ }
+ @Test void lifecyclePermissionsPlatformAndCompatibility(){
+  var p=plan();for(String permission:List.of("TREATMENT_PLAN_VIEW","TREATMENT_PLAN_EDIT","TREATMENT_PLAN_APPROVE")){login(permission);assertThrows(AccessDeniedException.class,()->lifecycle.history(p.getId(),clinic,0,20));}
+  actor=AppUser.builder().id(user).build();login("TREATMENT_PLAN_HISTORY_VIEW");
+  assertThrows(IllegalArgumentException.class,()->lifecycle.history(p.getId(),null,0,20));assertEquals(1,lifecycle.history(p.getId(),clinic,0,20).totalElements());
+  assertEquals(404,assertThrows(TreatmentItemException.class,()->lifecycle.history(UUID.randomUUID(),clinic,0,20)).status);
+  assertEquals(0,readController.history(p.getId(),clinic,0,20).totalElements());assertEquals(0,controller.history(p.getId(),clinic,0,20).totalElements());
+  assertEquals(100,lifecycle.history(p.getId(),clinic,0,200).size());
+  for(int[] args:List.of(new int[]{-1,20},new int[]{0,0},new int[]{Integer.MAX_VALUE,100}))assertEquals(400,assertThrows(TreatmentItemException.class,()->lifecycle.history(p.getId(),clinic,args[0],args[1])).status);
+ }
+
+ @Test void lifecycleHttpContractDefaultsAndDenial() throws Exception {
+  var p=plan();var mvc=org.springframework.test.web.servlet.setup.MockMvcBuilders.standaloneSetup(lifecycle).setControllerAdvice(errors).build();
+  login("TREATMENT_PLAN_VIEW");mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/treatment-plans/"+p.getId()+"/lifecycle-history")).andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isForbidden());
+  login("TREATMENT_PLAN_HISTORY_VIEW");mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/treatment-plans/"+p.getId()+"/lifecycle-history"))
+   .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isOk())
+   .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("number").value(0))
+   .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("size").value(20))
+   .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("content[0].*",org.hamcrest.Matchers.hasSize(9)))
+   .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("content[0].toStatus").value("DRAFT"))
+   .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("content[0].actorId").value(user.toString()))
+   .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("content[0].actorName").value("Test actor"));
+ }
+
 }
