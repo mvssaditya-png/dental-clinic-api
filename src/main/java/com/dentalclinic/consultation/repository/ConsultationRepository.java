@@ -12,6 +12,35 @@ import java.util.UUID;
 public interface ConsultationRepository
         extends JpaRepository<Consultation, UUID> {
 
+    // Null legacy starts sort after dated visits, then by UUID; no synthetic timestamp is returned.
+    @Query(value = """
+        SELECT new com.dentalclinic.consultation.dto.ClinicalVisitSummary(
+            c.id, c.status, c.startedAt, c.endedAt, a.id, a.appointmentNumber,
+            a.appointmentDate, a.startTime, d.id,
+            trim(concat(coalesce(u.firstName, ''), ' ', coalesce(u.lastName, ''))),
+            cs.id, cs.caseSheetNumber, cs.status, cs.visitNumber, cs.chiefComplaint)
+        FROM Consultation c
+        JOIN c.appointment a
+        JOIN c.doctor d
+        JOIN d.user u
+        LEFT JOIN CaseSheet cs ON cs.consultation.id = c.id
+            AND cs.clinic.id = :clinicId AND cs.patient.id = :patientId
+        WHERE c.clinic.id = :clinicId AND c.patient.id = :patientId
+            AND a.clinic.id = :clinicId AND a.patient.id = :patientId
+            AND d.clinic.id = :clinicId
+            AND (:excluded IS NULL OR c.id <> :excluded)
+        ORDER BY c.startedAt DESC NULLS LAST, c.id DESC
+        """, countQuery = """
+        SELECT count(c) FROM Consultation c
+        JOIN c.appointment a JOIN c.doctor d JOIN d.user u
+        WHERE c.clinic.id = :clinicId AND c.patient.id = :patientId
+            AND a.clinic.id = :clinicId AND a.patient.id = :patientId
+            AND d.clinic.id = :clinicId
+            AND (:excluded IS NULL OR c.id <> :excluded)
+        """)
+    org.springframework.data.domain.Page<com.dentalclinic.consultation.dto.ClinicalVisitSummary> readClinicalVisits(
+            @Param("clinicId") UUID clinicId, @Param("patientId") UUID patientId,
+            @Param("excluded") UUID excluded, org.springframework.data.domain.Pageable pageable);
     boolean existsByAppointmentId(UUID appointmentId);
 
     @Query("""
