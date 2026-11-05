@@ -63,7 +63,7 @@ public class OdontogramService {
 
         Patient patient =
                 patientRepository
-                        .findByIdAndClinicId(
+                        .lockByIdAndClinicId(
                                 patientId,
                                 clinic.getId()
                         )
@@ -76,7 +76,7 @@ public class OdontogramService {
         if (odontogramRepository
                 .existsByPatientId(patient.getId())) {
 
-            throw new IllegalArgumentException(
+            throw new OdontogramMutationException(409,
                     "Odontogram already exists for this patient"
             );
         }
@@ -339,7 +339,7 @@ public class OdontogramService {
     public OdontogramToothResponse updateTooth(
             UUID odontogramId,
             String toothNumber,
-            UpdateOdontogramToothRequest request
+            UpdateOdontogramToothRequest request, String match, String noneMatch
     ) {
 
         AppUser currentUser =
@@ -351,47 +351,16 @@ public class OdontogramService {
                         request.getClinicId()
                 );
 
-        String normalizedToothNumber =
-                normalize(toothNumber);
-
-        if (normalizedToothNumber == null) {
-            throw new IllegalArgumentException(
-                    "toothNumber is required"
-            );
-        }
-
-        Odontogram odontogram =
-                odontogramRepository
-                        .findByIdAndClinicId(
-                                odontogramId,
-                                clinic.getId()
-                        )
-                        .orElseThrow(() ->
-                                new IllegalArgumentException(
-                                        "Odontogram not found"
-                                )
-                        );
-
-        if (odontogram.getStatus()
-                != OdontogramStatus.ACTIVE) {
-
-            throw new IllegalArgumentException(
-                    "Archived odontogram cannot be updated"
-            );
-        }
-
-        CaseSheet caseSheet =
-                caseSheetRepository
-                        .findByIdAndClinicIdWithDetails(
-                                request.getCaseSheetId(),
-                                clinic.getId()
-                        )
-                        .orElseThrow(() ->
-                                new IllegalArgumentException(
-                                        "Case sheet not found"
-                                )
-                        );
-
+        String normalizedToothNumber = ToothPrecondition.adultNumber(toothNumber);
+        ToothPrecondition precondition = ToothPrecondition.parse(match, noneMatch);
+        // All clinical writers acquire the Case Sheet before the chart/tooth.
+        if (request.getCaseSheetId() == null) throw new IllegalArgumentException("caseSheetId is required");
+        CaseSheet caseSheet = caseSheetRepository.lockByIdAndClinicId(request.getCaseSheetId(), clinic.getId())
+                .orElseThrow(() -> new IllegalArgumentException("Case sheet not found"));
+        Odontogram odontogram = odontogramRepository.lockByIdAndClinicId(odontogramId, clinic.getId())
+                .orElseThrow(() -> new IllegalArgumentException("Odontogram not found"));
+        if (odontogram.getStatus() != OdontogramStatus.ACTIVE)
+            throw new IllegalArgumentException("Archived odontogram cannot be updated");
         if (caseSheet.getStatus()
                 != CaseSheetStatus.DRAFT) {
 
@@ -462,6 +431,7 @@ public class OdontogramService {
                         )
                         .orElse(null);
 
+        precondition.verify(tooth == null ? null : tooth.getVersion());
         /*
          * FIRST TIME this tooth is recorded.
          */
@@ -525,6 +495,7 @@ public class OdontogramService {
                     now
             );
 
+            flushTooth();
             return mapToothResponse(tooth);
         }
 
@@ -621,7 +592,15 @@ public class OdontogramService {
                 now
         );
 
+        flushTooth();
         return mapToothResponse(tooth);
+    }
+
+    private void flushTooth() {
+        try { odontogramToothRepository.flush(); }
+        catch (org.springframework.dao.OptimisticLockingFailureException | jakarta.persistence.OptimisticLockException e) {
+            throw new OdontogramMutationException(412, "Tooth state changed. Reload before saving.");
+        }
     }
 
     private void createToothHistory(
@@ -695,7 +674,7 @@ public class OdontogramService {
         OdontogramCondition condition =
                 tooth.getCondition();
 
-        return OdontogramToothResponse.builder()
+        return OdontogramToothResponse.builder().version(tooth.getVersion())
                 .id(
                         tooth.getId()
                 )
@@ -821,7 +800,7 @@ public class OdontogramService {
         }
 
         return odontogramToothHistoryRepository
-                .findAllByOdontogramIdAndToothNumberOrderByChangedAtDesc(
+                .findAllByOdontogramIdAndToothNumberOrderByChangedAtDescIdDesc(
                         odontogram.getId(),
                         normalizedToothNumber
                 )

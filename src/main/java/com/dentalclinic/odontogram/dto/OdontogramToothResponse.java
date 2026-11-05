@@ -11,6 +11,7 @@ import java.util.UUID;
 public class OdontogramToothResponse {
 
     private UUID id;
+    private long version;
 
     private UUID odontogramId;
 

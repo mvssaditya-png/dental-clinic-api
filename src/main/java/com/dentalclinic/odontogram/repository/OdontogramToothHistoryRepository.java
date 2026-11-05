@@ -11,7 +11,7 @@ public interface OdontogramToothHistoryRepository
         extends JpaRepository<OdontogramToothHistory, UUID> {
 
     List<OdontogramToothHistory>
-    findAllByOdontogramIdAndToothNumberOrderByChangedAtDesc(
+    findAllByOdontogramIdAndToothNumberOrderByChangedAtDescIdDesc(
             UUID odontogramId,
             String toothNumber
     );

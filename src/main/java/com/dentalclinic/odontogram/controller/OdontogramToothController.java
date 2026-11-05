@@ -33,7 +33,9 @@ public class OdontogramToothController {
             @PathVariable String toothNumber,
             @Valid
             @RequestBody
-            UpdateOdontogramToothRequest request
+            UpdateOdontogramToothRequest request,
+            @RequestHeader(value = "If-Match", required = false) String match,
+            @RequestHeader(value = "If-None-Match", required = false) String noneMatch
     ) {
 
         return ResponseEntity.ok(
@@ -41,7 +43,7 @@ public class OdontogramToothController {
                         .updateTooth(
                                 odontogramId,
                                 toothNumber,
-                                request
+                                request, match, noneMatch
                         )
         );
     }

@@ -39,6 +39,9 @@ public class OdontogramTooth {
             updatable = false
     )
     private UUID id;
+    @Version
+    @Column(nullable = false)
+    private long version;
 
     @ManyToOne(
             fetch = FetchType.LAZY,
