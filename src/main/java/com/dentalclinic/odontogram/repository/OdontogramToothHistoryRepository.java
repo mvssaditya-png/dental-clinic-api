@@ -10,6 +10,7 @@ import java.util.UUID;
 public interface OdontogramToothHistoryRepository
         extends JpaRepository<OdontogramToothHistory, UUID> {
 
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"labels"})
     List<OdontogramToothHistory>
     findAllByOdontogramIdAndToothNumberOrderByChangedAtDescIdDesc(
             UUID odontogramId,

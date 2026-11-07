@@ -24,6 +24,7 @@ import java.util.UUID;
 public class OdontogramColourConfigController {
 
     private final OdontogramColourConfigService colourConfigService;
+    private final com.dentalclinic.odontogram.service.OdontogramConfigurationService configurationService;
 
     @PostMapping
     @PreAuthorize("hasAuthority('ODONTOGRAM_CONFIGURE')")
@@ -31,14 +32,16 @@ public class OdontogramColourConfigController {
     saveColourConfig(
             @Valid
             @RequestBody
-            SaveOdontogramColourConfigRequest request
+            SaveOdontogramColourConfigRequest request,
+            @RequestHeader(value="If-Match",required=false) String match
     ) {
 
+        configurationService.colourOnly(request,match);
         return ResponseEntity
                 .status(HttpStatus.OK)
                 .body(
                         colourConfigService
-                                .saveColourConfig(request)
+                                .getColourConfig(request.getConditionId(),request.getClinicId())
                 );
     }
 

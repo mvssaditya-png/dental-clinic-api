@@ -33,82 +33,10 @@ public class OdontogramColourConfigService {
     private final OdontogramConditionRepository conditionRepository;
     private final ClinicRepository clinicRepository;
 
-    @Transactional
-    public OdontogramColourConfigResponse saveColourConfig(
-            SaveOdontogramColourConfigRequest request
-    ) {
-
-        AppUser currentUser =
-                SecurityUtils.getCurrentUser();
-
-        Clinic clinic =
-                resolveClinic(
-                        currentUser,
-                        request.getClinicId()
-                );
-
-        /*
-         * Condition must belong to the same clinic.
-         */
-        OdontogramCondition condition =
-                conditionRepository
-                        .findByIdAndClinicId(
-                                request.getConditionId(),
-                                clinic.getId()
-                        )
-                        .orElseThrow(() ->
-                                new IllegalArgumentException(
-                                        "Odontogram condition not found"
-                                )
-                        );
-
-        if (!Boolean.TRUE.equals(condition.getActive())) {
-            throw new IllegalArgumentException(
-                    "Odontogram condition is inactive"
-            );
-        }
-
-        /*
-         * One colour config per condition.
-         *
-         * If it already exists, update it.
-         * Otherwise create it.
-         */
-        OdontogramColourConfig config =
-                colourConfigRepository
-                        .findByConditionIdAndClinicId(
-                                condition.getId(),
-                                clinic.getId()
-                        )
-                        .orElseGet(() ->
-                                OdontogramColourConfig
-                                        .builder()
-                                        .clinic(clinic)
-                                        .condition(condition)
-                                        .createdBy(currentUser)
-                                        .build()
-                        );
-
-        config.setColourHex(
-                request.getColourHex().toUpperCase()
-        );
-
-        config.setDisplayOrder(
-                request.getDisplayOrder()
-        );
-
-        config.setActive(
-                request.getActive() != null
-                        ? request.getActive()
-                        : true
-        );
-
-        config.setUpdatedBy(currentUser);
-
-        config =
-                colourConfigRepository.save(config);
-
-        return mapToResponse(config);
+    @Transactional(readOnly=true)
+    public OdontogramColourConfigResponse getColourConfig(UUID id,UUID requestedClinicId){
+        Clinic clinic=resolveClinic(SecurityUtils.getCurrentUser(),requestedClinicId);
+        return mapToResponse(colourConfigRepository.findByConditionIdAndClinicId(id,clinic.getId()).orElseThrow());
     }
 
     @Transactional(readOnly = true)

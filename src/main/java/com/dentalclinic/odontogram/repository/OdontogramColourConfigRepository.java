@@ -35,7 +35,7 @@ public interface OdontogramColourConfigRepository
             JOIN FETCH c.condition condition
             WHERE c.clinic.id = :clinicId
               AND c.active = true
-              AND condition.active = true
+
             ORDER BY c.displayOrder ASC,
                      condition.conditionName ASC
             """)

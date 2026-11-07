@@ -16,6 +16,7 @@ public interface OdontogramConditionRepository
             UUID clinicId
     );
 
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_READ)
     Optional<OdontogramCondition>
     findByIdAndClinicId(
             UUID id,

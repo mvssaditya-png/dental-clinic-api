@@ -201,126 +201,6 @@ public class OdontogramService {
                 + lastName;
     }
 
-    @Transactional
-    public OdontogramConditionResponse createCondition(
-            CreateOdontogramConditionRequest request
-    ) {
-
-        AppUser currentUser =
-                SecurityUtils.getCurrentUser();
-
-        Clinic clinic =
-                resolveClinic(
-                        currentUser,
-                        request.getClinicId()
-                );
-
-        String conditionCode =
-                request
-                        .getConditionCode()
-                        .trim()
-                        .toUpperCase();
-
-        if (odontogramConditionRepository
-                .existsByClinicIdAndConditionCode(
-                        clinic.getId(),
-                        conditionCode
-                )) {
-
-            throw new IllegalArgumentException(
-                    "Odontogram condition already exists"
-            );
-        }
-
-        OdontogramCondition condition =
-                OdontogramCondition.builder()
-                        .clinic(clinic)
-                        .conditionCode(conditionCode)
-                        .conditionName(
-                                request
-                                        .getConditionName()
-                                        .trim()
-                        )
-                        .description(
-                                normalize(
-                                        request.getDescription()
-                                )
-                        )
-                        .patientExplanation(
-                                normalize(
-                                        request.getPatientExplanation()
-                                )
-                        )
-                        .active(true)
-                        .createdBy(currentUser)
-                        .updatedBy(currentUser)
-                        .build();
-
-        condition =
-                odontogramConditionRepository
-                        .save(condition);
-
-        return mapConditionResponse(condition);
-    }
-
-    @Transactional(readOnly = true)
-    public List<OdontogramConditionResponse> getConditions(
-            UUID requestedClinicId
-    ) {
-
-        AppUser currentUser =
-                SecurityUtils.getCurrentUser();
-
-        Clinic clinic =
-                resolveClinic(
-                        currentUser,
-                        requestedClinicId
-                );
-
-        return odontogramConditionRepository
-                .findAllByClinicIdAndActiveTrueOrderByConditionNameAsc(
-                        clinic.getId()
-                )
-                .stream()
-                .map(this::mapConditionResponse)
-                .toList();
-    }
-
-    private OdontogramConditionResponse mapConditionResponse(
-            OdontogramCondition condition
-    ) {
-
-        return OdontogramConditionResponse.builder()
-                .id(condition.getId())
-                .clinicId(
-                        condition
-                                .getClinic()
-                                .getId()
-                )
-                .conditionCode(
-                        condition.getConditionCode()
-                )
-                .conditionName(
-                        condition.getConditionName()
-                )
-                .description(
-                        condition.getDescription()
-                )
-                .patientExplanation(
-                        condition.getPatientExplanation()
-                )
-                .active(
-                        condition.getActive()
-                )
-                .createdAt(
-                        condition.getCreatedAt()
-                )
-                .updatedAt(
-                        condition.getUpdatedAt()
-                )
-                .build();
-    }
-
     private String normalize(String value) {
 
         if (value == null) {
@@ -822,6 +702,7 @@ public class OdontogramService {
         return OdontogramToothHistoryResponse.builder()
 
                 .id(history.getId())
+                .labelSource(history.getLabels() != null ? history.getLabels().getSource() : "UNAVAILABLE")
 
                 .toothNumber(
                         history.getToothNumber()
@@ -834,15 +715,11 @@ public class OdontogramService {
                 )
 
                 .previousConditionCode(
-                        previousCondition != null
-                                ? previousCondition.getConditionCode()
-                                : null
+                        history.getLabels() != null ? history.getLabels().getPreviousCode() : null
                 )
 
                 .previousConditionName(
-                        previousCondition != null
-                                ? previousCondition.getConditionName()
-                                : null
+                        history.getLabels() != null ? history.getLabels().getPreviousName() : null
                 )
 
                 .newConditionId(
@@ -852,15 +729,11 @@ public class OdontogramService {
                 )
 
                 .newConditionCode(
-                        newCondition != null
-                                ? newCondition.getConditionCode()
-                                : null
+                        history.getLabels() != null ? history.getLabels().getNewCode() : null
                 )
 
                 .newConditionName(
-                        newCondition != null
-                                ? newCondition.getConditionName()
-                                : null
+                        history.getLabels() != null ? history.getLabels().getNewName() : null
                 )
 
                 .previousNotes(

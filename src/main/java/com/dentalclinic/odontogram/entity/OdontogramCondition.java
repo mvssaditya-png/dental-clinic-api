@@ -38,6 +38,11 @@ public class OdontogramCondition {
     )
     private UUID id;
 
+    @Version
+    @Column(nullable = false)
+    @Builder.Default
+    private Long version = 0L;
+
     @ManyToOne(
             fetch = FetchType.LAZY,
             optional = false

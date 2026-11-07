@@ -30,6 +30,10 @@ public class OdontogramToothHistory {
     )
     private UUID id;
 
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id", referencedColumnName = "history_id", insertable = false, updatable = false)
+    private OdontogramHistoryLabel labels;
+
     @ManyToOne(
             fetch = FetchType.LAZY,
             optional = false

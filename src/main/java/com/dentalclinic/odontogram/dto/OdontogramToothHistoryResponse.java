@@ -12,6 +12,7 @@ import java.util.UUID;
 public class OdontogramToothHistoryResponse {
 
     private UUID id;
+    private String labelSource;
 
     private String toothNumber;
 
