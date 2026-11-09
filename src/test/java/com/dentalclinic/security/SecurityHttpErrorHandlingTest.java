@@ -44,6 +44,9 @@ class SecurityHttpErrorHandlingTest {
         JwtAuthenticationFilter.class, AppointmentAuthorization.class, TreatmentPlanAuthorization.class,
         AppointmentController.class, TreatmentPlanController.class, ProbeController.class})
     static class Config {
+  @Bean com.dentalclinic.auth.web.WebSessionSettings webSettings(){return new com.dentalclinic.auth.web.WebSessionSettings(false,true,"","",new org.springframework.mock.env.MockEnvironment());}
+  @Bean com.dentalclinic.auth.web.WebSessionService webSessions(){return mock(com.dentalclinic.auth.web.WebSessionService.class);}
+
         @Bean com.dentalclinic.clinic.service.ClinicAccessPolicy clinicAccessPolicy() { return new com.dentalclinic.clinic.service.ClinicAccessPolicy(); }
         @Bean ObjectMapper objectMapper() { return JsonMapper.builder().build(); }
         @Bean JwtService jwtService() { return mock(JwtService.class); }

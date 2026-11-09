@@ -18,6 +18,12 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final SecurityErrorHandler securityErrorHandler;
+    private final com.dentalclinic.auth.web.WebSessionSettings webSettings;
+    private final com.dentalclinic.auth.web.WebSessionService webSessions;
+    private final com.dentalclinic.user.repository.AppUserRepository users;
+    private final com.dentalclinic.security.repository.UserRoleRepository roles;
+    private final com.dentalclinic.security.repository.RolePermissionRepository permissions;
+    private final com.dentalclinic.clinic.service.ClinicAccessPolicy clinics;
 
     @Bean
     public SecurityFilterChain securityFilterChain(
@@ -43,6 +49,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth ->
                         auth
                                 .requestMatchers(
+                                        "/api/auth/web/csrf", "/api/auth/web/send-otp", "/api/auth/web/verify-otp", "/api/auth/web/logout",
                                         "/api/auth/send-otp",
                                         "/api/auth/verify-otp"
                                 )
@@ -57,6 +64,7 @@ public class SecurityConfig {
                         UsernamePasswordAuthenticationFilter.class
                 );
 
+        http.addFilterBefore(new com.dentalclinic.auth.web.WebSessionFilter(webSettings, webSessions, users, roles, permissions, clinics), com.dentalclinic.security.filter.JwtAuthenticationFilter.class);
         return http.build();
     }
 }

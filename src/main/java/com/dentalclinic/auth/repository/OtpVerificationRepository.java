@@ -11,8 +11,9 @@ import java.util.UUID;
 public interface OtpVerificationRepository
         extends JpaRepository<OtpVerification, UUID> {
 
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
     Optional<OtpVerification>
-    findFirstByPhoneAndPurposeAndUsedFalseOrderByCreatedAtDesc(
+    findFirstByPhoneAndPurposeOrderByCreatedAtDesc(
             String phone,
             OtpPurpose purpose
     );

@@ -27,6 +27,9 @@ import com.dentalclinic.auth.dto.VerifyOtpResponse;
 @RequiredArgsConstructor
 public class OtpService {
 
+    @org.springframework.beans.factory.annotation.Autowired(required=false)
+    private LocalOtpDelivery localDelivery;
+
     private static final int OTP_EXPIRY_MINUTES = 5;
     private static final int MAX_OTP_REQUESTS = 5;
     private static final int RATE_LIMIT_MINUTES = 15;
@@ -92,14 +95,8 @@ public class OtpService {
 
         otpVerificationRepository.save(verification);
 
-        /*
-         * TEMPORARY FOR LOCAL DEVELOPMENT ONLY.
-         *
-         * Next we will replace this with the actual SMS provider.
-         */
-        System.out.println(
-                "LOGIN OTP for " + phone + " = " + otp
-        );
+        // OTP values must never be written to application logs.
+        if (localDelivery != null) localDelivery.deliver(otp);
 
         return new SendOtpResponse(
                 true,
@@ -113,14 +110,14 @@ public class OtpService {
         return String.valueOf(number);
     }
 
-    @Transactional
+    @Transactional(noRollbackFor = FailedOtpException.class)
     public VerifyOtpResponse verifyLoginOtp(
             VerifyOtpRequest request
     ) {
 
         OtpVerification verification =
                 otpVerificationRepository
-                        .findFirstByPhoneAndPurposeAndUsedFalseOrderByCreatedAtDesc(
+                        .findFirstByPhoneAndPurposeOrderByCreatedAtDesc(
                                 request.getPhone(),
                                 OtpPurpose.LOGIN
                         )
@@ -129,6 +126,8 @@ public class OtpService {
                                         "OTP not found. Please request a new OTP."
                                 )
                         );
+
+        if (Boolean.TRUE.equals(verification.getUsed())) throw new IllegalArgumentException("OTP not found. Please request a new OTP.");
 
         if (verification.getExpiresAt()
                 .isBefore(LocalDateTime.now())) {
@@ -157,7 +156,7 @@ public class OtpService {
 
             otpVerificationRepository.save(verification);
 
-            throw new IllegalArgumentException(
+            throw new FailedOtpException(
                     "Invalid OTP"
             );
         }

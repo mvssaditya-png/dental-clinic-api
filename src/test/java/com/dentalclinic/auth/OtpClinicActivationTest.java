@@ -26,7 +26,7 @@ class OtpClinicActivationTest {
     VerifyOtpRequest verifyRequest() { var r = new VerifyOtpRequest(); r.setPhone("9876500001"); r.setOtp("123456"); return r; }
     OtpVerification validOtp() {
         var otp = OtpVerification.builder().expiresAt(LocalDateTime.now().plusMinutes(5)).attemptCount(0).used(false).otpHash("hash").build();
-        when(otps.findFirstByPhoneAndPurposeAndUsedFalseOrderByCreatedAtDesc(anyString(), eq(OtpPurpose.LOGIN))).thenReturn(Optional.of(otp));
+        when(otps.findFirstByPhoneAndPurposeOrderByCreatedAtDesc(anyString(), eq(OtpPurpose.LOGIN))).thenReturn(Optional.of(otp));
         when(encoder.matches("123456", "hash")).thenReturn(true); return otp;
     }
     @BeforeEach void setup() { when(users.findAllByPhoneAndStatus(anyString(), eq(UserStatus.ACTIVE))).thenReturn(List.of(user)); }

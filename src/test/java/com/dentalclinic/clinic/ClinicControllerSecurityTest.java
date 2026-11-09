@@ -35,6 +35,9 @@ class ClinicControllerSecurityTest {
  @Configuration @EnableWebMvc @EnableWebSecurity
  @Import({SecurityConfig.class,JwtAuthenticationFilter.class,SecurityErrorHandler.class,GlobalExceptionHandler.class,ClinicController.class,ClinicAccessPolicy.class,ProbeController.class})
  static class Config {
+  @Bean com.dentalclinic.auth.web.WebSessionSettings webSettings(){return new com.dentalclinic.auth.web.WebSessionSettings(false,true,"","",new org.springframework.mock.env.MockEnvironment());}
+  @Bean com.dentalclinic.auth.web.WebSessionService webSessions(){return mock(com.dentalclinic.auth.web.WebSessionService.class);}
+
   @Bean ObjectMapper mapper(){return JsonMapper.builder().build();}
   @Bean JwtService jwt(){return mock(JwtService.class);}
   @Bean AppUserRepository users(){return mock(AppUserRepository.class);}
