@@ -16,6 +16,9 @@ public interface CaseSheetRepository
     @Query("select cs from CaseSheet cs where cs.id=:id and cs.clinic.id=:clinicId")
     Optional<CaseSheet> lockByIdAndClinicId(@Param("id") UUID id, @Param("clinicId") UUID clinicId);
 
+    @Query("select cs.id from CaseSheet cs where cs.consultation.id=:consultationId and cs.clinic.id=:clinicId")
+    Optional<UUID> findIdForConsultation(@Param("consultationId") UUID consultationId,@Param("clinicId") UUID clinicId);
+
     boolean existsByConsultationId(UUID consultationId);
 
     boolean existsByClinicIdAndCaseSheetNumber(

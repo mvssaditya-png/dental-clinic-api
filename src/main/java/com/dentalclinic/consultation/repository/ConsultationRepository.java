@@ -12,6 +12,10 @@ import java.util.UUID;
 public interface ConsultationRepository
         extends JpaRepository<Consultation, UUID> {
 
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("select c from Consultation c where c.id=:id and c.clinic.id=:clinicId")
+    Optional<Consultation> lockByIdAndClinicId(@Param("id") UUID id,@Param("clinicId") UUID clinicId);
+
     // Null legacy starts sort after dated visits, then by UUID; no synthetic timestamp is returned.
     @Query(value = """
         SELECT new com.dentalclinic.consultation.dto.ClinicalVisitSummary(

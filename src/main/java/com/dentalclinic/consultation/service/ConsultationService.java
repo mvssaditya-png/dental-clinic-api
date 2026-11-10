@@ -34,6 +34,8 @@ public class ConsultationService {
     private final com.dentalclinic.clinic.service.TenantClinicResolver tenantClinicResolver;
 
     private final ConsultationRepository consultationRepository;
+    private final ConsultationLifecycleGuard lifecycle;
+    private final org.springframework.jdbc.core.JdbcTemplate jdbc;
     private final AppointmentRepository appointmentRepository;
     private final ClinicRepository clinicRepository;
     private final CaseSheetRepository caseSheetRepository;
@@ -294,17 +296,9 @@ public class ConsultationService {
                 request.getClinicId()
         );
 
-        Consultation consultation =
-                consultationRepository
-                        .findByIdAndClinicIdWithDetails(
-                                consultationId,
-                                clinic.getId()
-                        )
-                        .orElseThrow(() ->
-                                new IllegalArgumentException(
-                                        "Consultation not found"
-                                )
-                        );
+        // Lock order matches Case Sheet/odontogram writers: sheet, then consultation.
+        caseSheetRepository.findIdForConsultation(consultationId,clinic.getId()).ifPresent(id -> caseSheetRepository.lockByIdAndClinicId(id,clinic.getId()));
+        Consultation consultation = lifecycle.lock(consultationId,clinic.getId());
 
         ConsultationStatus currentStatus =
                 consultation.getStatus();
@@ -313,7 +307,7 @@ public class ConsultationService {
                 request.getStatus();
 
         if (currentStatus == newStatus) {
-            throw new IllegalArgumentException(
+            throw new com.dentalclinic.casesheet.service.EntryException(409,
                     "Consultation is already in status " + newStatus
             );
         }
@@ -336,25 +330,28 @@ public class ConsultationService {
                                     clinic.getId()
                             )
                             .orElseThrow(() ->
-                                    new IllegalArgumentException(
+                                    new com.dentalclinic.casesheet.service.EntryException(409,
                                             "Consultation cannot be completed because case sheet does not exist"
                                     )
                             );
 
             if (caseSheet.getStatus() != CaseSheetStatus.FINALIZED) {
-                throw new IllegalArgumentException(
+                throw new com.dentalclinic.casesheet.service.EntryException(409,
                         "Consultation cannot be completed until the case sheet is finalized"
                 );
             }
         }
 
+        LocalDateTime changedAt=LocalDateTime.now();
         consultation.setStatus(newStatus);
+        if(newStatus==ConsultationStatus.COMPLETED||newStatus==ConsultationStatus.CANCELLED)consultation.setEndedAt(changedAt);
 
         consultation.setUpdatedBy(currentUser);
 
         consultation =
                 consultationRepository.save(consultation);
 
+        jdbc.update("insert into consultation_status_audit(consultation_id,clinic_id,from_status,to_status,actor_id,changed_at) values (?,?,?,?,?,?)", consultationId,clinic.getId(),currentStatus.name(),newStatus.name(),currentUser.getId(),changedAt);
         return mapToResponse(consultation);
     }
 
@@ -381,7 +378,7 @@ public class ConsultationService {
 
         if (!allowed) {
 
-            throw new IllegalArgumentException(
+            throw new com.dentalclinic.casesheet.service.EntryException(409,
                     "Invalid consultation status transition: "
                             + currentStatus
                             + " -> "

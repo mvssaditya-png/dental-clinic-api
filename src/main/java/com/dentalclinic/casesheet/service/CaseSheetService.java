@@ -39,6 +39,7 @@ public class CaseSheetService {
 
     private final CaseSheetRepository caseSheetRepository;
     private final EntryAudit entryAudit;
+    private final com.dentalclinic.consultation.service.ConsultationLifecycleGuard lifecycle;
     private final ConsultationRepository consultationRepository;
     private final ClinicRepository clinicRepository;
     private final CaseSheetDiagnosisRepository caseSheetDiagnosisRepository;
@@ -62,17 +63,7 @@ public class CaseSheetService {
          * Load consultation with appointment,
          * patient, doctor, doctor user and clinic.
          */
-        Consultation consultation =
-                consultationRepository
-                        .findByIdAndClinicIdWithDetails(
-                                request.getConsultationId(),
-                                clinic.getId()
-                        )
-                        .orElseThrow(() ->
-                                new IllegalArgumentException(
-                                        "Consultation not found"
-                                )
-                        );
+        Consultation consultation = lifecycle.active(request.getConsultationId(),clinic.getId());
 
         /*
          * We should not create a clinical record
@@ -158,7 +149,7 @@ public class CaseSheetService {
                         .build();
 
         caseSheet =
-                caseSheetRepository.save(
+                caseSheetRepository.saveAndFlush(
                         caseSheet
                 );
 
@@ -210,7 +201,7 @@ public class CaseSheetService {
         AppUser doctorUser =
                 doctor.getUser();
 
-        return CaseSheetResponse.builder()
+        return CaseSheetResponse.builder().version(caseSheet.getVersion())
 
                 .id(
                         caseSheet.getId()
@@ -345,9 +336,10 @@ public class CaseSheetService {
     public CaseSheetResponse updateCaseSheet(
             UUID caseSheetId,
             UUID requestedClinicId,
-            UpdateCaseSheetRequest request
+            UpdateCaseSheetRequest request, String ifMatch
     ) {
 
+        long expected=CaseSheetEntryService.version(ifMatch);
         AppUser currentUser =
                 SecurityUtils.getCurrentUser();
 
@@ -359,6 +351,7 @@ public class CaseSheetService {
 
         caseSheetRepository.lockByIdAndClinicId(caseSheetId, clinic.getId())
                 .orElseThrow(() -> new IllegalArgumentException("Case sheet not found"));
+        lifecycle.active(caseSheetRepository.findById(caseSheetId).orElseThrow());
 
         CaseSheet caseSheet =
                 caseSheetRepository
@@ -372,6 +365,7 @@ public class CaseSheetService {
                                 )
                         );
 
+        if(caseSheet.getVersion()!=expected)throw new EntryException(412,"Case sheet changed; reload before saving");
         if (caseSheet.getStatus()
                 != CaseSheetStatus.DRAFT) {
 
@@ -408,10 +402,11 @@ public class CaseSheetService {
                 )
         );
 
+        caseSheet.setUpdatedAt(LocalDateTime.now());
         caseSheet.setUpdatedBy(currentUser);
 
         caseSheet =
-                caseSheetRepository.save(caseSheet);
+                caseSheetRepository.saveAndFlush(caseSheet);
 
         return mapToResponse(caseSheet);
     }
@@ -507,6 +502,7 @@ public class CaseSheetService {
 
         caseSheetRepository.lockByIdAndClinicId(caseSheetId, clinic.getId())
                 .orElseThrow(() -> new IllegalArgumentException("Case sheet not found"));
+        lifecycle.active(caseSheetRepository.findById(caseSheetId).orElseThrow());
 
         CaseSheet caseSheet =
                 caseSheetRepository
@@ -562,6 +558,8 @@ public class CaseSheetService {
                 caseSheetDiagnosisRepository
                         .save(diagnosis);
 
+        caseSheet.clinicalContentChanged();
+        caseSheetRepository.saveAndFlush(caseSheet);
         entryAudit.write(clinic,currentUser,"DIAGNOSIS","CREATE",null,EntryAudit.snapshot(diagnosis),null);
         return mapDiagnosisResponse(diagnosis);
     }
@@ -650,6 +648,7 @@ public class CaseSheetService {
 
         caseSheetRepository.lockByIdAndClinicId(caseSheetId, clinic.getId())
                 .orElseThrow(() -> new IllegalArgumentException("Case sheet not found"));
+        lifecycle.active(caseSheetRepository.findById(caseSheetId).orElseThrow());
 
         CaseSheet caseSheet =
                 caseSheetRepository
@@ -702,6 +701,8 @@ public class CaseSheetService {
                 caseSheetClinicalFindingRepository
                         .save(finding);
 
+        caseSheet.clinicalContentChanged();
+        caseSheetRepository.saveAndFlush(caseSheet);
         entryAudit.write(clinic,currentUser,"FINDING","CREATE",null,EntryAudit.snapshot(finding),null);
         return mapClinicalFindingResponse(finding);
     }
@@ -779,8 +780,10 @@ public class CaseSheetService {
     @Transactional
     public CaseSheetResponse finalizeCaseSheet(
             UUID caseSheetId,
-            FinalizeCaseSheetRequest request
+            FinalizeCaseSheetRequest request,
+            String ifMatch
     ) {
+        long expected = CaseSheetEntryService.version(ifMatch);
 
         AppUser currentUser =
                 SecurityUtils.getCurrentUser();
@@ -793,6 +796,7 @@ public class CaseSheetService {
 
         caseSheetRepository.lockByIdAndClinicId(caseSheetId, clinic.getId())
                 .orElseThrow(() -> new IllegalArgumentException("Case sheet not found"));
+        lifecycle.active(caseSheetRepository.findById(caseSheetId).orElseThrow());
 
         CaseSheet caseSheet =
                 caseSheetRepository
@@ -805,6 +809,10 @@ public class CaseSheetService {
                                         "Case sheet not found"
                                 )
                         );
+
+        if (caseSheet.getVersion() != expected) {
+            throw new EntryException(412, "Case sheet changed; reload all clinical content and review again before finalizing");
+        }
 
         /*
          * Only a DRAFT case sheet can be finalized.
@@ -902,7 +910,7 @@ public class CaseSheetService {
         );
 
         caseSheet =
-                caseSheetRepository.save(
+                caseSheetRepository.saveAndFlush(
                         caseSheet
                 );
 

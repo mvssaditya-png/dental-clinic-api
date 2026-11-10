@@ -46,6 +46,7 @@ public class OdontogramService {
             odontogramToothHistoryRepository;
 
     private final CaseSheetRepository caseSheetRepository;
+    private final com.dentalclinic.consultation.service.ConsultationLifecycleGuard lifecycle;
     @Transactional
     public OdontogramResponse createOdontogram(
             UUID patientId,
@@ -237,6 +238,7 @@ public class OdontogramService {
         if (request.getCaseSheetId() == null) throw new IllegalArgumentException("caseSheetId is required");
         CaseSheet caseSheet = caseSheetRepository.lockByIdAndClinicId(request.getCaseSheetId(), clinic.getId())
                 .orElseThrow(() -> new IllegalArgumentException("Case sheet not found"));
+        lifecycle.active(caseSheet);
         Odontogram odontogram = odontogramRepository.lockByIdAndClinicId(odontogramId, clinic.getId())
                 .orElseThrow(() -> new IllegalArgumentException("Odontogram not found"));
         if (odontogram.getStatus() != OdontogramStatus.ACTIVE)

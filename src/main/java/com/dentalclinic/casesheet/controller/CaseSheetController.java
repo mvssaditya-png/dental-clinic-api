@@ -46,7 +46,8 @@ public class CaseSheetController {
             @PathVariable UUID id,
             @RequestParam(required = false)
             UUID clinicId,
-            @RequestBody UpdateCaseSheetRequest request
+            @RequestBody UpdateCaseSheetRequest request,
+            @RequestHeader(value="If-Match",required=false) String ifMatch
     ) {
 
         CaseSheetResponse response =
@@ -54,7 +55,7 @@ public class CaseSheetController {
                         .updateCaseSheet(
                                 id,
                                 clinicId,
-                                request
+                                request, ifMatch
                         );
 
         return ResponseEntity.ok(response);
@@ -163,13 +164,15 @@ public class CaseSheetController {
     @PreAuthorize("hasAuthority('CASE_SHEET_FINALIZE')")
     public ResponseEntity<CaseSheetResponse> finalizeCaseSheet(
             @PathVariable UUID caseSheetId,
-            @Valid @RequestBody FinalizeCaseSheetRequest request
+            @Valid @RequestBody FinalizeCaseSheetRequest request,
+            @RequestHeader(value="If-Match", required=false) String ifMatch
     ) {
 
         return ResponseEntity.ok(
                 caseSheetService.finalizeCaseSheet(
                         caseSheetId,
-                        request
+                        request,
+                        ifMatch
                 )
         );
     }

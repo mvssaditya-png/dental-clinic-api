@@ -45,6 +45,10 @@ public class CaseSheet {
     )
     private UUID id;
 
+    @Version
+    @Column(nullable=false)
+    private long version;
+
     @ManyToOne(
             fetch = FetchType.LAZY,
             optional = false
@@ -162,6 +166,12 @@ public class CaseSheet {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "updated_by")
     private AppUser updatedBy;
+
+    /** Dirty the parent so JPA advances its aggregate version with clinical children. */
+    public void clinicalContentChanged() {
+        LocalDateTime now = LocalDateTime.now();
+        updatedAt = now.equals(updatedAt) ? now.plusNanos(1000) : now;
+    }
 
     @PrePersist
     protected void onCreate() {

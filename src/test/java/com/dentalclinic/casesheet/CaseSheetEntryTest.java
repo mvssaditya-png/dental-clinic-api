@@ -24,7 +24,7 @@ class CaseSheetEntryTest {
  final CaseSheetClinicalFindingRepository findings=mock(CaseSheetClinicalFindingRepository.class);
  final EntryHistoryRepository history=mock(EntryHistoryRepository.class);
  final EntryAudit audit=mock(EntryAudit.class);
- final CaseSheetEntryService service=new CaseSheetEntryService(resolver,sheets,diagnoses,findings,history,audit);
+ final CaseSheetEntryService service=new CaseSheetEntryService(resolver,sheets,diagnoses,findings,history,audit,mock(com.dentalclinic.consultation.service.ConsultationLifecycleGuard.class));
  final CaseSheetDiagnosis d=CaseSheetDiagnosis.builder().id(id).clinic(clinic).caseSheet(parent).diagnosisName("Old").diagnosisType(DiagnosisType.PRIMARY).build();
  @BeforeEach void setup(){SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(actor,null,List.of()));when(resolver.resolve(eq(actor),any(),anyString())).thenReturn(clinic);when(sheets.lockByIdAndClinicId(parentId,clinicId)).thenReturn(Optional.of(parent));when(diagnoses.findByIdAndCaseSheetIdAndClinicId(id,parentId,clinicId)).thenReturn(Optional.of(d));}
  @AfterEach void clear(){SecurityContextHolder.clearContext();}

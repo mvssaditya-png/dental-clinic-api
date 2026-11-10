@@ -13,6 +13,7 @@ import java.util.UUID;
 public class CaseSheetResponse {
 
     private UUID id;
+    private long version;
 
     private UUID clinicId;
 
