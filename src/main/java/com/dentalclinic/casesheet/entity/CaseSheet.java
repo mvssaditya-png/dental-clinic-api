@@ -133,6 +133,10 @@ public class CaseSheet {
     private String treatmentNotes;
 
     @Enumerated(EnumType.STRING)
+    private TreatmentPlanRequirement treatmentPlanRequirement;
+    private String treatmentDecisionReason;
+
+    @Enumerated(EnumType.STRING)
     @Column(
             name = "status",
             nullable = false,

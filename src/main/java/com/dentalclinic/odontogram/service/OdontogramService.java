@@ -75,7 +75,7 @@ public class OdontogramService {
                         );
 
         if (odontogramRepository
-                .existsByPatientId(patient.getId())) {
+                .existsByPatientIdAndStatus(patient.getId(), OdontogramStatus.ACTIVE)) {
 
             throw new OdontogramMutationException(409,
                     "Odontogram already exists for this patient"
@@ -131,10 +131,7 @@ public class OdontogramService {
 
         Odontogram odontogram =
                 odontogramRepository
-                        .findByPatientIdAndClinicId(
-                                patientId,
-                                clinic.getId()
-                        )
+                        .findByPatientIdAndClinicIdAndStatus(patientId, clinic.getId(), OdontogramStatus.ACTIVE)
                         .orElseThrow(() ->
                                 new IllegalArgumentException(
                                         "Odontogram not found for this patient"
@@ -144,7 +141,7 @@ public class OdontogramService {
         return mapToResponse(odontogram);
     }
 
-    private OdontogramResponse mapToResponse(
+    OdontogramResponse mapToResponse(
             Odontogram odontogram
     ) {
 
@@ -152,7 +149,8 @@ public class OdontogramService {
                 odontogram.getPatient();
 
         return OdontogramResponse.builder()
-                .id(odontogram.getId())
+                .archiveAllowed(odontogram.getStatus()==OdontogramStatus.ACTIVE && OdontogramArchiveAuthorization.allowed(odontogram))
+                .id(odontogram.getId()).version(odontogram.getVersion()).archivedAt(odontogram.getArchivedAt()).archivedBy(odontogram.getArchivedBy()).archiveReason(odontogram.getArchiveReason())
                 .clinicId(
                         odontogram
                                 .getClinic()
@@ -377,6 +375,7 @@ public class OdontogramService {
                     now
             );
 
+            odontogram.setVersion(odontogram.getVersion()+1);
             flushTooth();
             return mapToothResponse(tooth);
         }
@@ -474,6 +473,7 @@ public class OdontogramService {
                 now
         );
 
+        odontogram.setVersion(odontogram.getVersion()+1);
         flushTooth();
         return mapToothResponse(tooth);
     }

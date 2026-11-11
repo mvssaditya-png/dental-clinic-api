@@ -16,4 +16,6 @@ public class UpdateCaseSheetRequest {
     private String diagnosisSummary;
 
     private String treatmentNotes;
+    private com.dentalclinic.casesheet.entity.TreatmentPlanRequirement treatmentPlanRequirement;
+    private String treatmentDecisionReason;
 }

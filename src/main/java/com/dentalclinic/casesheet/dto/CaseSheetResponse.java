@@ -39,6 +39,9 @@ public class CaseSheetResponse {
     private String clinicalExamination;
     private String diagnosisSummary;
     private String treatmentNotes;
+    private com.dentalclinic.casesheet.entity.TreatmentPlanRequirement treatmentPlanRequirement;
+    private String treatmentDecisionReason;
+    private String treatmentDecisionBlocker;
 
     private CaseSheetStatus status;
 

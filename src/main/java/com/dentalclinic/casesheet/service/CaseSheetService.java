@@ -39,6 +39,7 @@ public class CaseSheetService {
 
     private final CaseSheetRepository caseSheetRepository;
     private final EntryAudit entryAudit;
+    private final TreatmentDecisionService treatmentDecisions;
     private final com.dentalclinic.consultation.service.ConsultationLifecycleGuard lifecycle;
     private final ConsultationRepository consultationRepository;
     private final ClinicRepository clinicRepository;
@@ -201,7 +202,10 @@ public class CaseSheetService {
         AppUser doctorUser =
                 doctor.getUser();
 
-        return CaseSheetResponse.builder().version(caseSheet.getVersion())
+        return CaseSheetResponse.builder()
+                .treatmentPlanRequirement(caseSheet.getTreatmentPlanRequirement())
+                .treatmentDecisionReason(caseSheet.getTreatmentDecisionReason())
+                .treatmentDecisionBlocker(treatmentDecisions.blocker(caseSheet)).version(caseSheet.getVersion())
 
                 .id(
                         caseSheet.getId()
@@ -373,6 +377,10 @@ public class CaseSheetService {
                     "Only DRAFT case sheets can be edited"
             );
         }
+
+        TreatmentDecisionService.validateDraft(request.getTreatmentPlanRequirement(),request.getTreatmentDecisionReason());
+        caseSheet.setTreatmentPlanRequirement(request.getTreatmentPlanRequirement());
+        caseSheet.setTreatmentDecisionReason(normalize(request.getTreatmentDecisionReason()));
 
         caseSheet.setChiefComplaint(
                 normalize(request.getChiefComplaint())
@@ -889,6 +897,8 @@ public class CaseSheetService {
          * Finalizing this case sheet only closes the
          * clinical documentation for this consultation.
          */
+
+        treatmentDecisions.recordFinalization(caseSheet);
 
         LocalDateTime now =
                 LocalDateTime.now();

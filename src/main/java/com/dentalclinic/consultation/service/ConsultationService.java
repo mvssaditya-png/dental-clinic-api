@@ -35,6 +35,7 @@ public class ConsultationService {
 
     private final ConsultationRepository consultationRepository;
     private final ConsultationLifecycleGuard lifecycle;
+    private final com.dentalclinic.casesheet.service.TreatmentDecisionService treatmentDecisions;
     private final org.springframework.jdbc.core.JdbcTemplate jdbc;
     private final AppointmentRepository appointmentRepository;
     private final ClinicRepository clinicRepository;
@@ -340,6 +341,7 @@ public class ConsultationService {
                         "Consultation cannot be completed until the case sheet is finalized"
                 );
             }
+            treatmentDecisions.validateCompletion(caseSheet);
         }
 
         LocalDateTime changedAt=LocalDateTime.now();

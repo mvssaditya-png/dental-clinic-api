@@ -12,6 +12,11 @@ import java.util.UUID;
 public class OdontogramResponse {
 
     private UUID id;
+    private long version;
+    private boolean archiveAllowed;
+    private LocalDateTime archivedAt;
+    private UUID archivedBy;
+    private String archiveReason;
 
     private UUID clinicId;
 

@@ -11,15 +11,7 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(
-        name = "odontogram",
-        uniqueConstraints = {
-                @UniqueConstraint(
-                        name = "uq_odontogram_patient",
-                        columnNames = "patient_id"
-                )
-        }
-)
+@Table(name = "odontogram")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -36,6 +28,12 @@ public class Odontogram {
     )
     private UUID id;
 
+    @Column(nullable=false)
+    private long version;
+    private LocalDateTime archivedAt;
+    private UUID archivedBy;
+    private String archiveReason;
+
     @ManyToOne(
             fetch = FetchType.LAZY,
             optional = false
@@ -46,14 +44,13 @@ public class Odontogram {
     )
     private Clinic clinic;
 
-    @OneToOne(
+    @ManyToOne(
             fetch = FetchType.LAZY,
             optional = false
     )
     @JoinColumn(
             name = "patient_id",
-            nullable = false,
-            unique = true
+            nullable = false
     )
     private Patient patient;
 
@@ -78,7 +75,7 @@ public class Odontogram {
     private LocalDateTime updatedAt;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "created_by")
+    @JoinColumn(name = "created_by", updatable = false)
     private AppUser createdBy;
 
     @ManyToOne(fetch = FetchType.LAZY)

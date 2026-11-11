@@ -21,6 +21,9 @@ public interface OdontogramRepository
     );
 
     boolean existsByPatientId(UUID patientId);
+    boolean existsByPatientIdAndStatus(UUID patientId, com.dentalclinic.odontogram.entity.OdontogramStatus status);
+    Optional<Odontogram> findByPatientIdAndClinicIdAndStatus(UUID patientId,UUID clinicId,com.dentalclinic.odontogram.entity.OdontogramStatus status);
+    org.springframework.data.domain.Page<Odontogram> findByPatientIdAndClinicIdAndStatus(UUID patientId,UUID clinicId,com.dentalclinic.odontogram.entity.OdontogramStatus status,org.springframework.data.domain.Pageable page);
 
     Optional<Odontogram> findByIdAndClinicId(
             UUID id,
