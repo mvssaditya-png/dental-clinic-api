@@ -39,7 +39,8 @@ class ConsultationLifecycleDatabaseTest {
  jdbc.update("insert into patient(id,clinic_id,patient_number,first_name,gender,phone) values (?,?,?,'Patient','OTHER','123')",patient,clinic,patient.toString());
  jdbc.update("insert into doctor_profile(id,clinic_id,user_id) values (?,?,?)",doctor,clinic,user);
  jdbc.update("insert into appointment(id,clinic_id,appointment_number,patient_id,doctor_id,appointment_date,start_time,end_time) values (?,?,?,?,?,current_date,'09:00','09:30')",appointment,clinic,appointment.toString(),patient,doctor);
- jdbc.update("insert into consultation(id,clinic_id,appointment_id,patient_id,doctor_id) values (?,?,?,?,?)",consultation,clinic,appointment,patient,doctor);
+ // Use an established visit start: database and JVM wall clocks can differ by milliseconds.
+ jdbc.update("insert into consultation(id,clinic_id,appointment_id,patient_id,doctor_id,started_at) values (?,?,?,?,?,?)",consultation,clinic,appointment,patient,doctor,java.time.LocalDateTime.now().minusMinutes(1));
  jdbc.update("insert into case_sheet(id,clinic_id,consultation_id,appointment_id,patient_id,doctor_id,case_sheet_number,chief_complaint) values (?,?,?,?,?,?,?,'Pain')",parent,clinic,consultation,appointment,patient,doctor,parent.toString());
  actor=AppUser.builder().id(user).clinic(Clinic.builder().id(clinic).active(true).build()).build();login();}
  void login(String... p){SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(actor,null,Arrays.stream(p).map(SimpleGrantedAuthority::new).toList()));}

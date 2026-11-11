@@ -83,4 +83,37 @@ public interface ConsultationRepository
             UUID appointmentId,
             UUID clinicId
     );
+
+ @Query(value="""
+ SELECT new com.dentalclinic.consultation.dto.ConsultationSummary(c.id,c.clinic.id,a.id,a.appointmentNumber,
+ p.id,trim(concat(concat(coalesce(p.firstName,''),' '),coalesce(p.lastName,''))),p.patientNumber,
+ trim(concat(concat(coalesce(u.firstName,''),' '),coalesce(u.lastName,''))),c.status,a.status,c.startedAt,c.endedAt,a.appointmentDate)
+
+ FROM Consultation c JOIN c.appointment a JOIN c.patient p JOIN c.doctor d JOIN d.user u
+ WHERE c.clinic.id=:clinicId AND a.clinic.id=:clinicId AND p.clinic.id=:clinicId AND d.clinic.id=:clinicId
+ AND a.patient.id=p.id
+ AND (:status IS NULL OR c.status=:status)
+ AND (cast(:fromDate as date) IS NULL OR a.appointmentDate>=:fromDate) AND (cast(:toDate as date) IS NULL OR a.appointmentDate<=:toDate)
+ AND (:pattern IS NULL OR lower(concat(concat(coalesce(p.firstName,''),' '),coalesce(p.lastName,''))) LIKE :pattern ESCAPE '!'
+ OR lower(p.patientNumber) LIKE :pattern ESCAPE '!' OR lower(a.appointmentNumber) LIKE :pattern ESCAPE '!'
+ OR lower(cast(c.id as String)) LIKE :pattern ESCAPE '!')
+
+ ORDER BY c.startedAt DESC NULLS LAST,c.id DESC
+ """,countQuery="""
+ SELECT count(c)
+ FROM Consultation c JOIN c.appointment a JOIN c.patient p JOIN c.doctor d JOIN d.user u
+ WHERE c.clinic.id=:clinicId AND a.clinic.id=:clinicId AND p.clinic.id=:clinicId AND d.clinic.id=:clinicId
+ AND a.patient.id=p.id
+ AND (:status IS NULL OR c.status=:status)
+ AND (cast(:fromDate as date) IS NULL OR a.appointmentDate>=:fromDate) AND (cast(:toDate as date) IS NULL OR a.appointmentDate<=:toDate)
+ AND (:pattern IS NULL OR lower(concat(concat(coalesce(p.firstName,''),' '),coalesce(p.lastName,''))) LIKE :pattern ESCAPE '!'
+ OR lower(p.patientNumber) LIKE :pattern ESCAPE '!' OR lower(a.appointmentNumber) LIKE :pattern ESCAPE '!'
+ OR lower(cast(c.id as String)) LIKE :pattern ESCAPE '!')
+
+ """)
+ org.springframework.data.domain.Page<com.dentalclinic.consultation.dto.ConsultationSummary> discover(
+ @Param("clinicId") UUID clinicId,@Param("pattern") String pattern,
+ @Param("status") com.dentalclinic.consultation.entity.ConsultationStatus status,
+ @Param("fromDate") java.time.LocalDate from,@Param("toDate") java.time.LocalDate to,
+ org.springframework.data.domain.Pageable pageable);
 }
